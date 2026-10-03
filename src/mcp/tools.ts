@@ -1,10 +1,16 @@
 import type { AlexaBackend, EchoDevice, Routine } from "../alexa/client.js";
-import { summarizeRoutine } from "../alexa/routines.js";
+import { describeControls, type SmartDevice } from "../alexa/devices.js";
+import { summarizeRoutine, type DeviceNames } from "../alexa/routines.js";
 
 export const TOOL_SPEAK = "alexa_speak";
 export const TOOL_RUN_ROUTINE = "alexa_run_routine";
 export const TOOL_TEXT_COMMAND = "alexa_text_command";
 export const TOOL_LIST_ROUTINES = "alexa_list_routines";
+export const TOOL_LIST_DEVICES = "alexa_list_devices";
+export const TOOL_CONTROL_DEVICE = "alexa_control_device";
+
+const DEVICE_ACTIONS = ["turn_on", "turn_off", "set_brightness"] as const;
+type DeviceAction = (typeof DEVICE_ACTIONS)[number];
 
 const NO_REPLY =
   "The Echo's spoken reply (if any) does not come back here; this only confirms Amazon accepted the request.";
@@ -15,6 +21,8 @@ export interface ToolContext {
   alexa: AlexaBackend;
   /** Optional aliases from config: caller's name -> Alexa app name or serial. */
   aliases: Record<string, string>;
+  /** Wait before reading a device's state back after a change (tests set 0). */
+  settleMs?: number;
 }
 
 export interface ToolDefinition {
@@ -71,6 +79,23 @@ export function findRoutine(name: string, routines: Routine[]): Routine {
   throw new Error(`No Alexa routine named exactly "${name}".${hint} Use ${TOOL_LIST_ROUTINES} to see every routine and what it does.`);
 }
 
+export function resolveDevice(name: string, devices: SmartDevice[]): SmartDevice {
+  const wanted = name.trim().toLowerCase();
+  const hit = devices.find((d) => d.name.toLowerCase() === wanted);
+  if (hit) return hit;
+  throw new Error(
+    `No controllable device named "${name.trim()}". Use ${TOOL_LIST_DEVICES} to see the online devices and what they do, then use one of those exact names.`
+  );
+}
+
+async function deviceNames(ctx: ToolContext): Promise<DeviceNames> {
+  try {
+    return new Map((await ctx.alexa.devices()).filter((d) => d.entityId).map((d) => [d.entityId, d.name]));
+  } catch {
+    return new Map();
+  }
+}
+
 function echoProperty(names: string[]): Record<string, unknown> {
   const prop: Record<string, unknown> = {
     type: "string",
@@ -82,6 +107,17 @@ function echoProperty(names: string[]): Record<string, unknown> {
 
 /** Tool list. When signed in, the `echo` argument lists the real Echo names. */
 export async function toolDefinitions(ctx: ToolContext): Promise<ToolDefinition[]> {
+  let deviceNameList: string[] = [];
+  try {
+    deviceNameList = (await ctx.alexa.devices()).map((d) => d.name);
+  } catch {
+    deviceNameList = [];
+  }
+  const deviceProp: Record<string, unknown> = {
+    type: "string",
+    description: `The device's exact name from ${TOOL_LIST_DEVICES}. Do not make up names.`
+  };
+  if (deviceNameList.length) deviceProp.enum = deviceNameList;
   let names: string[] = [];
   try {
     names = echoNames(await ctx.alexa.echoes(), ctx.aliases);
@@ -138,6 +174,25 @@ export async function toolDefinitions(ctx: ToolContext): Promise<ToolDefinition[
         required: ["echo", "command"],
         additionalProperties: false
       }
+    },
+    {
+      name: TOOL_LIST_DEVICES,
+      description: `List the smart-home devices (lights, plugs, TV, ...) that are online right now: each one's type, what it can do, and its current state (on/off, brightness). Read-only. Offline and disabled devices are left out. Use it when the user describes a device instead of naming it exactly ("the coffee thing", "lamps by my desk"): pick by meaning, then call ${TOOL_CONTROL_DEVICE} with the exact name. If more than one could fit, ask.`,
+      inputSchema: { type: "object", properties: {}, additionalProperties: false }
+    },
+    {
+      name: TOOL_CONTROL_DEVICE,
+      description: `Turn an online smart-home device on or off, or set a light's brightness (0-100%). Use the exact device name from ${TOOL_LIST_DEVICES}. Refuses offline devices and controls the device doesn't have. Returns the device's state afterwards. For several devices, call once per device.`,
+      inputSchema: {
+        type: "object",
+        properties: {
+          device: deviceProp,
+          action: { type: "string", enum: [...DEVICE_ACTIONS], description: "turn_on, turn_off, or set_brightness." },
+          brightness: { type: "integer", minimum: 0, maximum: 100, description: "Percent, for set_brightness only." }
+        },
+        required: ["device", "action"],
+        additionalProperties: false
+      }
     }
   ];
 }
@@ -186,12 +241,47 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
     }
     case TOOL_LIST_ROUTINES: {
       // Disabled routines are left out: they aren't offered and can't be run.
+      const names = await deviceNames(ctx);
       const routines = (await ctx.alexa.routines())
         .filter((r) => r.enabled)
-        .map(summarizeRoutine)
+        .map((r) => summarizeRoutine(r, names))
         .map(({ enabled: _enabled, ...rest }) => rest)
         .sort((a, b) => a.name.localeCompare(b.name));
       return JSON.stringify({ routines });
+    }
+    case TOOL_LIST_DEVICES: {
+      const devices = await ctx.alexa.devices();
+      const states = await ctx.alexa.deviceStates(devices.map((d) => d.applianceId));
+      const online = devices
+        .filter((d) => states.get(d.applianceId)?.online)
+        .map((d) => {
+          const { online: _online, ...state } = states.get(d.applianceId) as NonNullable<ReturnType<typeof states.get>>;
+          return { name: d.name, type: d.type, can: describeControls(d.controls), state };
+        });
+      return JSON.stringify({ devices: online });
+    }
+    case TOOL_CONTROL_DEVICE: {
+      const deviceName = requireString(args, "device");
+      const action = args.action as DeviceAction;
+      if (!DEVICE_ACTIONS.includes(action)) throw new Error(`"action" must be one of ${DEVICE_ACTIONS.join(", ")}`);
+      const device = resolveDevice(deviceName, await ctx.alexa.devices());
+      let parameters: Record<string, unknown>;
+      if (action === "set_brightness") {
+        const b = args.brightness;
+        if (typeof b !== "number" || !Number.isInteger(b) || b < 0 || b > 100) throw new Error('"brightness" must be a whole number from 0 to 100');
+        if (!device.controls.includes("brightness")) throw new Error(`"${device.name}" (${device.type}) has no brightness control; it can: ${describeControls(device.controls).join(", ")}.`);
+        parameters = { action: "setBrightness", brightness: b };
+      } else {
+        if (!device.controls.includes("power")) throw new Error(`"${device.name}" can't be turned on or off; it can: ${describeControls(device.controls).join(", ")}.`);
+        parameters = { action: action === "turn_on" ? "turnOn" : "turnOff" };
+      }
+      const before = (await ctx.alexa.deviceStates([device.applianceId])).get(device.applianceId);
+      if (!before?.online) throw new Error(`"${device.name}" is offline right now, so it can't be controlled.`);
+      await ctx.alexa.controlDevice(device.applianceId, parameters);
+      await new Promise((r) => setTimeout(r, ctx.settleMs ?? 1500));
+      const after = (await ctx.alexa.deviceStates([device.applianceId])).get(device.applianceId);
+      const { online: _o, ...state } = after ?? { online: false };
+      return JSON.stringify({ ok: true, device: device.name, action, ...(action === "set_brightness" ? { brightness: args.brightness } : {}), stateAfter: state });
     }
     default:
       throw new Error(`Unknown tool: ${name}`);

@@ -8,6 +8,8 @@ import {
   resolveEcho,
   stripWakeWord,
   toolDefinitions,
+  TOOL_CONTROL_DEVICE,
+  TOOL_LIST_DEVICES,
   TOOL_LIST_ROUTINES,
   TOOL_RUN_ROUTINE,
   TOOL_SPEAK,
@@ -50,10 +52,12 @@ describe("routines", () => {
 });
 
 describe("tools", () => {
-  it("lists the three actions plus the read-only finder, with the real Echo names as the enum", async () => {
+  it("lists all tools, with the real Echo names as the enum", async () => {
     const { backend } = fakeAlexa();
     const defs = await toolDefinitions({ alexa: backend, aliases: ALIASES });
-    expect(defs.map((d) => d.name)).toEqual([TOOL_SPEAK, TOOL_LIST_ROUTINES, TOOL_RUN_ROUTINE, TOOL_TEXT_COMMAND]);
+    expect(defs.map((d) => d.name)).toEqual([TOOL_SPEAK, TOOL_LIST_ROUTINES, TOOL_RUN_ROUTINE, TOOL_TEXT_COMMAND, TOOL_LIST_DEVICES, TOOL_CONTROL_DEVICE]);
+    const device = (defs[5].inputSchema.properties as Record<string, { enum?: string[] }>).device;
+    expect(device.enum).toEqual(["Hall Light", "Kettle", "Garage Plug"]);
     const echo = (defs[0].inputSchema.properties as Record<string, { enum?: string[] }>).echo;
     expect(echo.enum).toEqual(["Echo - Den", "Porch Echo"]);
   });
@@ -168,5 +172,54 @@ describe("alexa_list_routines", () => {
         steps: ["Smart home: lights (2): turn on, brightness 5%", 'Alexa says: "good night"', 'Tells Alexa: "ask door control to close the shed"']
       }
     ]);
+  });
+});
+
+describe("devices", () => {
+  const ctx = (b: ReturnType<typeof fakeAlexa>["backend"]) => ({ alexa: b, aliases: ALIASES, settleMs: 0 });
+
+  it("lists only online devices with plain controls and state", async () => {
+    const { backend, calls } = fakeAlexa();
+    const out = JSON.parse(await callTool(ctx(backend), TOOL_LIST_DEVICES, {}));
+    expect(calls).toEqual([]);
+    expect(out.devices).toEqual([
+      { name: "Hall Light", type: "light", can: ["turn on/off", "brightness 0-100%"], state: { power: "off", brightness: 40 } },
+      { name: "Kettle", type: "smart plug", can: ["turn on/off"], state: { power: "off" } }
+    ]);
+  });
+
+  it("turns a device on and reports the state afterwards", async () => {
+    const { backend, calls } = fakeAlexa();
+    const out = JSON.parse(await callTool(ctx(backend), TOOL_CONTROL_DEVICE, { device: "kettle", action: "turn_on" }));
+    expect(calls).toEqual(['control APP-2 {"action":"turnOn"}']);
+    expect(out).toMatchObject({ ok: true, device: "Kettle", stateAfter: { power: "on" } });
+  });
+
+  it("sets brightness", async () => {
+    const { backend, calls } = fakeAlexa();
+    const out = JSON.parse(await callTool(ctx(backend), TOOL_CONTROL_DEVICE, { device: "Hall Light", action: "set_brightness", brightness: 15 }));
+    expect(calls).toEqual(['control APP-1 {"action":"setBrightness","brightness":15}']);
+    expect(out.stateAfter).toEqual({ power: "on", brightness: 15 });
+  });
+
+  it("refuses offline devices, missing controls, bad values and unknown names without sending anything", async () => {
+    const { backend, calls } = fakeAlexa();
+    await expect(callTool(ctx(backend), TOOL_CONTROL_DEVICE, { device: "Garage Plug", action: "turn_on" })).rejects.toThrow(/offline/);
+    await expect(callTool(ctx(backend), TOOL_CONTROL_DEVICE, { device: "Kettle", action: "set_brightness", brightness: 50 })).rejects.toThrow(/no brightness control/);
+    await expect(callTool(ctx(backend), TOOL_CONTROL_DEVICE, { device: "Hall Light", action: "set_brightness", brightness: 150 })).rejects.toThrow(/0 to 100/);
+    await expect(callTool(ctx(backend), TOOL_CONTROL_DEVICE, { device: "Attic Fan", action: "turn_on" })).rejects.toThrow(/No controllable device named "Attic Fan"/);
+    await expect(callTool(ctx(backend), TOOL_CONTROL_DEVICE, { device: "Kettle", action: "explode" })).rejects.toThrow(/action/);
+    expect(calls).toEqual([]);
+  });
+
+  it("names devices in routine steps", async () => {
+    const r = {
+      name: "Evening",
+      enabled: true,
+      raw: { name: "Evening", triggers: [], sequence: { startNode: { type: "Alexa.SmartHome.Batch", operationPayload: { target: "virtual@LIGHT@X", filter: { includeList: ["ent-1", "ent-2"] }, operations: [{ type: "turnOff" }] } } } }
+    };
+    const { backend } = fakeAlexa([r]);
+    const out = JSON.parse(await callTool(ctx(backend), TOOL_LIST_ROUTINES, {}));
+    expect(out.routines[0].steps).toEqual(["Smart home: Hall Light, Kettle: turn off"]);
   });
 });
