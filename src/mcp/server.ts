@@ -12,7 +12,8 @@ const INSTRUCTIONS = `Alexa Echo MCP: drives the account owner's own Amazon Echo
 - alexa_list_routines is read-only: when the user describes what they want rather than naming a routine, read what each routine does, pick by meaning (ask if unsure), then run that exact name.
 - Name Echoes only with the names offered in the echo argument. Never invent a device name.
 - The Echo's spoken reply does not come back; a success result only means Amazon accepted the request.
-- No Drop In, calling, volume, or playback controls.`;
+- Smart-home devices: alexa_list_devices (read-only; online devices, what they can do, current state) and alexa_control_device (turn on/off, set brightness). When the user describes a device loosely, pick it by meaning from the list; ask if more than one fits.
+- No Drop In, calling, or Echo volume/playback controls.`;
 
 export function createMcpServer(ctx: ToolContext): Server {
   const server = new Server(
