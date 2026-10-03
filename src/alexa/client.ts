@@ -21,6 +21,8 @@ export const NOT_SIGNED_IN =
   "Not signed in to Amazon. On the Mini run `alexa-echo-mcp login` and sign in to the Amazon account that owns the Echoes.";
 
 const INIT_TIMEOUT_MS = 90_000;
+const STATE_TIMEOUT_MS = 8_000;
+const DEVICE_CACHE_MS = 60_000;
 const COOKIE_REFRESH_MS = 4 * 24 * 60 * 60 * 1000;
 
 export interface EchoDevice {
@@ -46,7 +48,7 @@ export interface AlexaBackend {
   runRoutine(serial: string, routine: Routine): Promise<void>;
   /** Enabled, controllable smart-home devices (not Echoes/speakers). */
   devices(): Promise<SmartDevice[]>;
-  /** Live state by applianceId; anything missing or erroring is offline. */
+  /** Reported state by applianceId. Missing = no answer in time (unknown); online:false = Amazon says unreachable. */
   deviceStates(applianceIds: string[]): Promise<Map<string, DeviceState>>;
   controlDevice(applianceId: string, parameters: Record<string, unknown>): Promise<void>;
 }
@@ -124,6 +126,7 @@ function isAuthError(err: unknown): boolean {
 export class AlexaService implements AlexaBackend {
   private remote: AlexaRemoteLike | null = null;
   private ready: Promise<AlexaRemoteLike> | null = null;
+  private deviceCache: { at: number; devices: SmartDevice[] } | null = null;
 
   constructor(
     private readonly config: ResolvedConfig,
@@ -266,19 +269,34 @@ export class AlexaService implements AlexaBackend {
     });
   }
 
+  /** Cached for a minute: names and controls rarely change, and each lookup is a slow Amazon call. */
   async devices(): Promise<SmartDevice[]> {
+    if (this.deviceCache && Date.now() - this.deviceCache.at < DEVICE_CACHE_MS) return this.deviceCache.devices;
     return this.withRemote(async (remote) => {
       const items = await promisify<unknown>((cb) => remote.getSmarthomeDevicesV2(cb));
       if (!Array.isArray(items)) throw new Error("Amazon returned no device list");
-      return toSmartDevices(items);
+      const devices = toSmartDevices(items);
+      this.deviceCache = { at: Date.now(), devices };
+      return devices;
     });
   }
 
   async deviceStates(applianceIds: string[]): Promise<Map<string, DeviceState>> {
     if (!applianceIds.length) return new Map();
     return this.withRemote(async (remote) => {
-      const res = await promisify<unknown>((cb) => remote.querySmarthomeDevices(applianceIds, "APPLIANCE", cb));
-      return parseDeviceStates(res);
+      // One request per device with a short cap: a device that just changed can stall Amazon's
+      // answer for a minute, and it shouldn't hold up (or hide) the others.
+      const results = await Promise.all(
+        applianceIds.map((id) =>
+          Promise.race([
+            promisify<unknown>((cb) => remote.querySmarthomeDevices([id], "APPLIANCE", cb)).then(parseDeviceStates, () => new Map<string, DeviceState>()),
+            new Promise<Map<string, DeviceState>>((resolve) => setTimeout(() => resolve(new Map()), STATE_TIMEOUT_MS).unref())
+          ])
+        )
+      );
+      const merged = new Map<string, DeviceState>();
+      for (const m of results) for (const [k, v] of m) merged.set(k, v);
+      return merged;
     });
   }
 
