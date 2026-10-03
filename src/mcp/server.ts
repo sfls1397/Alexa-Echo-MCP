@@ -8,7 +8,8 @@ import { verifyAuthHeader } from "./httpAuth.js";
 import { callTool, toolDefinitions, type ToolContext } from "./tools.js";
 
 const INSTRUCTIONS = `Alexa Echo MCP: drives the account owner's own Amazon Echo devices through the unofficial Alexa app session (alexa-remote2). Amazon has no official API for this, so it can stop working if Amazon changes things.
-- Three actions only: alexa_speak (say a message), alexa_run_routine (run a routine by its exact Alexa app name), alexa_text_command (send a command as if spoken, e.g. "turn off the kitchen light").
+- Three actions: alexa_speak (say a message), alexa_run_routine (run a routine by its exact Alexa app name), alexa_text_command (send a command as if spoken, e.g. "turn off the kitchen light").
+- alexa_list_routines is read-only: when the user describes what they want rather than naming a routine, read what each routine does, pick by meaning (ask if unsure), then run that exact name.
 - Name Echoes only with the names offered in the echo argument. Never invent a device name.
 - The Echo's spoken reply does not come back; a success result only means Amazon accepted the request.
 - No Drop In, calling, volume, or playback controls.`;
