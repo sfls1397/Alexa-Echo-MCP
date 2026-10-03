@@ -31,7 +31,7 @@ describe("HTTP server", () => {
         })
       );
       const { tools } = await client.listTools();
-      expect(tools.map((t) => t.name).sort()).toEqual(["alexa_list_routines", "alexa_run_routine", "alexa_speak", "alexa_text_command"]);
+      expect(tools.map((t) => t.name).sort()).toEqual(["alexa_control_device", "alexa_list_devices", "alexa_list_routines", "alexa_run_routine", "alexa_speak", "alexa_text_command"]);
 
       const ok = await client.callTool({ name: "alexa_speak", arguments: { echo: "Echo - Den", message: "hi" } });
       expect(ok.isError).toBeFalsy();
