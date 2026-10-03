@@ -1,8 +1,10 @@
 import type { AlexaBackend, EchoDevice, Routine } from "../alexa/client.js";
+import { summarizeRoutine } from "../alexa/routines.js";
 
 export const TOOL_SPEAK = "alexa_speak";
 export const TOOL_RUN_ROUTINE = "alexa_run_routine";
 export const TOOL_TEXT_COMMAND = "alexa_text_command";
+export const TOOL_LIST_ROUTINES = "alexa_list_routines";
 
 const NO_REPLY =
   "The Echo's spoken reply (if any) does not come back here; this only confirms Amazon accepted the request.";
@@ -66,7 +68,7 @@ export function findRoutine(name: string, routines: Routine[]): Routine {
   if (exact.length > 1) throw new Error(`More than one Alexa routine is named exactly "${name}". Rename one in the Alexa app.`);
   const near = routines.filter((r) => r.name.trim().toLowerCase() === name.trim().toLowerCase()).map((r) => `"${r.name}"`);
   const hint = near.length ? ` Did you mean ${near.join(" or ")}? Names must match exactly.` : "";
-  throw new Error(`No Alexa routine named exactly "${name}".${hint}`);
+  throw new Error(`No Alexa routine named exactly "${name}".${hint} Use ${TOOL_LIST_ROUTINES} to see every routine and what it does.`);
 }
 
 function echoProperty(names: string[]): Record<string, unknown> {
@@ -100,6 +102,11 @@ export async function toolDefinitions(ctx: ToolContext): Promise<ToolDefinition[
         required: ["echo", "message"],
         additionalProperties: false
       }
+    },
+    {
+      name: TOOL_LIST_ROUTINES,
+      description: `List every Alexa routine with its voice phrases, other triggers, and what each step does, in plain words. Read-only: runs nothing. Use it when the user describes what they want instead of saying a routine's exact name ("make it dark for bed", "shut the garage"): pick the routine whose steps do that, by meaning, then call ${TOOL_RUN_ROUTINE} with its exact name. If more than one could fit, or none clearly does, ask the user.`,
+      inputSchema: { type: "object", properties: {}, additionalProperties: false }
     },
     {
       name: TOOL_RUN_ROUTINE,
@@ -180,6 +187,10 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
       const echo = resolveEcho(echoName, await ctx.alexa.echoes(), ctx.aliases);
       await ctx.alexa.textCommand(echo.serial, command);
       return JSON.stringify({ ok: true, echo: echoName, alexaName: echo.name, command, note: NO_REPLY });
+    }
+    case TOOL_LIST_ROUTINES: {
+      const routines = (await ctx.alexa.routines()).map(summarizeRoutine).sort((a, b) => a.name.localeCompare(b.name));
+      return JSON.stringify({ routines });
     }
     default:
       throw new Error(`Unknown tool: ${name}`);
