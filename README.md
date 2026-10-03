@@ -7,9 +7,9 @@ read-only helper:
 | Tool | What it does |
 | --- | --- |
 | `alexa_speak` | Make a named Echo say a message out loud (up to 250 characters). |
-| `alexa_run_routine` | Run an existing Alexa routine by its **exact** name, on a named Echo. |
+| `alexa_run_routine` | Run an existing, enabled Alexa routine by its **exact** name, on a named Echo. Disabled routines are refused. |
 | `alexa_text_command` | Send a command to a named Echo as if it had been spoken to it, e.g. "turn off the kitchen light" or "play jazz". |
-| `alexa_list_routines` | Read-only. Lists every routine with its voice phrases, other triggers and what each step does, in plain words. When you describe what you want ("make it dark for bed") rather than naming a routine, the AI reads this list, picks the routine by meaning, and runs it with `alexa_run_routine`. |
+| `alexa_list_routines` | Read-only. Lists every enabled routine (disabled ones are left out) with its voice phrases, other triggers and what each step does, in plain words. When you describe what you want ("make it dark for bed") rather than naming a routine, the AI reads this list, picks the routine by meaning, and runs it with `alexa_run_routine`. |
 
 That's all it does. There's no Drop In, calling, volume or playback control,
 and no reading device state. There's no matching logic in the server: picking a
