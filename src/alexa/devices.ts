@@ -15,8 +15,14 @@ export interface SmartDevice {
   /** Plain words, e.g. "light", "smart plug", "tv". */
   type: string;
   controls: DeviceControl[];
+  /** Amazon's device list says the device is reachable. */
+  reachable: boolean;
 }
 
+/**
+ * What Amazon reports. Reported on/off can lag a real change by a minute or
+ * more, and reads of a just-changed device can stall, so treat it as a hint.
+ */
 export interface DeviceState {
   online: boolean;
   power?: "on" | "off";
@@ -56,12 +62,16 @@ export function toSmartDevices(items: unknown[]): SmartDevice[] {
       .toLowerCase()
       .replace(/_/g, " ")
       .replace(/^smartplug$/, "smart plug");
-    out.push({ name, applianceId, entityId, type, controls: (["power", "brightness"] as DeviceControl[]).filter((c) => controls.has(c)) });
+    const reachable = String(obj(la.applianceNetworkState).reachability ?? "REACHABLE") === "REACHABLE";
+    out.push({ name, applianceId, entityId, type, controls: (["power", "brightness"] as DeviceControl[]).filter((c) => controls.has(c)), reachable });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Parse a /api/phoenix/state response into applianceId -> state. Devices with errors are offline. */
+/**
+ * Parse a /api/phoenix/state response into applianceId -> state. Devices with
+ * errors are offline; devices missing from the answer get no entry (unknown).
+ */
 export function parseDeviceStates(response: unknown): Map<string, DeviceState> {
   const states = new Map<string, DeviceState>();
   const res = obj(response);

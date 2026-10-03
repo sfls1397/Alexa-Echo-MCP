@@ -21,8 +21,6 @@ export interface ToolContext {
   alexa: AlexaBackend;
   /** Optional aliases from config: caller's name -> Alexa app name or serial. */
   aliases: Record<string, string>;
-  /** Wait before reading a device's state back after a change (tests set 0). */
-  settleMs?: number;
 }
 
 export interface ToolDefinition {
@@ -177,12 +175,12 @@ export async function toolDefinitions(ctx: ToolContext): Promise<ToolDefinition[
     },
     {
       name: TOOL_LIST_DEVICES,
-      description: `List the smart-home devices (lights, plugs, TV, ...) that are online right now: each one's type, what it can do, and its current state (on/off, brightness). Read-only. Offline and disabled devices are left out. Use it when the user describes a device instead of naming it exactly ("the coffee thing", "lamps by my desk"): pick by meaning, then call ${TOOL_CONTROL_DEVICE} with the exact name. If more than one could fit, ask.`,
+      description: `List the smart-home devices (lights, plugs, TV, ...) that are online: each one's type, what it can do, and the state Amazon last reported (on/off, brightness; on/off can lag a real change by a minute or more, and may be "unknown"). Read-only. Offline and disabled devices are left out. Use it when the user describes a device instead of naming it exactly ("the coffee thing", "lamps by my desk"): pick by meaning, then call ${TOOL_CONTROL_DEVICE} with the exact name. If more than one could fit, ask.`,
       inputSchema: { type: "object", properties: {}, additionalProperties: false }
     },
     {
       name: TOOL_CONTROL_DEVICE,
-      description: `Turn an online smart-home device on or off, or set a light's brightness (0-100%). Use the exact device name from ${TOOL_LIST_DEVICES}. Refuses offline devices and controls the device doesn't have. Returns the device's state afterwards. For several devices, call once per device.`,
+      description: `Turn an online smart-home device on or off, or set a light's brightness (0-100%). Use the exact device name from ${TOOL_LIST_DEVICES}. Refuses offline devices and controls the device doesn't have. Success means Amazon accepted the change; don't re-check the state right away, Amazon's reported on/off lags. For several devices, call once per device.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -250,15 +248,20 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
       return JSON.stringify({ routines });
     }
     case TOOL_LIST_DEVICES: {
-      const devices = await ctx.alexa.devices();
+      const devices = (await ctx.alexa.devices()).filter((d) => d.reachable);
       const states = await ctx.alexa.deviceStates(devices.map((d) => d.applianceId));
       const online = devices
-        .filter((d) => states.get(d.applianceId)?.online)
+        // Left out only when Amazon says it's unreachable; no answer in time = online, state unknown.
+        .filter((d) => states.get(d.applianceId)?.online !== false)
         .map((d) => {
-          const { online: _online, ...state } = states.get(d.applianceId) as NonNullable<ReturnType<typeof states.get>>;
+          const st = states.get(d.applianceId);
+          const state = st ? Object.fromEntries(Object.entries(st).filter(([k]) => k !== "online")) : "unknown";
           return { name: d.name, type: d.type, can: describeControls(d.controls), state };
         });
-      return JSON.stringify({ devices: online });
+      return JSON.stringify({
+        devices: online,
+        note: "State is what Amazon last reported; on/off can lag a real change by a minute or more."
+      });
     }
     case TOOL_CONTROL_DEVICE: {
       const deviceName = requireString(args, "device");
@@ -275,13 +278,20 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
         if (!device.controls.includes("power")) throw new Error(`"${device.name}" can't be turned on or off; it can: ${describeControls(device.controls).join(", ")}.`);
         parameters = { action: action === "turn_on" ? "turnOn" : "turnOff" };
       }
-      const before = (await ctx.alexa.deviceStates([device.applianceId])).get(device.applianceId);
-      if (!before?.online) throw new Error(`"${device.name}" is offline right now, so it can't be controlled.`);
-      await ctx.alexa.controlDevice(device.applianceId, parameters);
-      await new Promise((r) => setTimeout(r, ctx.settleMs ?? 1500));
-      const after = (await ctx.alexa.deviceStates([device.applianceId])).get(device.applianceId);
-      const { online: _o, ...state } = after ?? { online: false };
-      return JSON.stringify({ ok: true, device: device.name, action, ...(action === "set_brightness" ? { brightness: args.brightness } : {}), stateAfter: state });
+      if (!device.reachable) throw new Error(`"${device.name}" is offline right now, so it can't be controlled.`);
+      try {
+        await ctx.alexa.controlDevice(device.applianceId, parameters);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(/offline|unreachable/i.test(message) ? `"${device.name}" is offline right now, so it can't be controlled.` : message);
+      }
+      return JSON.stringify({
+        ok: true,
+        device: device.name,
+        action,
+        ...(action === "set_brightness" ? { brightness: args.brightness } : {}),
+        note: "Amazon accepted the change. Its reported on/off state can lag by a minute or more, so don't re-check right away."
+      });
     }
     default:
       throw new Error(`Unknown tool: ${name}`);

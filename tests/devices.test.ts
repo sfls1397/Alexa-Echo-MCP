@@ -20,11 +20,13 @@ describe("toSmartDevices", () => {
       item("Plug", "SMARTPLUG", ["Alexa.PowerController"]),
       item("Den Echo", "ALEXA_VOICE_ENABLED", ["Alexa.Speaker"]),
       item("Printer", "PRINTER", ["Alexa.PrinterController"]),
-      item("Old", "LIGHT", ["Alexa.PowerController"], { isEnabled: false })
+      item("Old", "LIGHT", ["Alexa.PowerController"], { isEnabled: false }),
+      item("Away", "LIGHT", ["Alexa.PowerController"], { applianceNetworkState: { reachability: "NOT_REACHABLE" } })
     ]);
     expect(out).toEqual([
-      { name: "Lamp", applianceId: "APP-Lamp", entityId: "ent-Lamp", type: "light", controls: ["power", "brightness"] },
-      { name: "Plug", applianceId: "APP-Plug", entityId: "ent-Plug", type: "smart plug", controls: ["power"] }
+      { name: "Away", applianceId: "APP-Away", entityId: "ent-Away", type: "light", controls: ["power"], reachable: false },
+      { name: "Lamp", applianceId: "APP-Lamp", entityId: "ent-Lamp", type: "light", controls: ["power", "brightness"], reachable: true },
+      { name: "Plug", applianceId: "APP-Plug", entityId: "ent-Plug", type: "smart plug", controls: ["power"], reachable: true }
     ]);
   });
 });
