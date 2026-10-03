@@ -1,0 +1,62 @@
+{
+  "name": "alexa-echo-mcp",
+  "version": "0.0.0",
+  "description": "Small MCP server that drives your own Amazon Echo devices through the unofficial Alexa app session (alexa-remote2): speak a message, run a routine by name, or send a text command",
+  "type": "module",
+  "main": "dist/cli.js",
+  "bin": {
+    "alexa-echo-mcp": "./bin/alexa-echo-mcp.js"
+  },
+  "author": "Peter Coates",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sfls1397/Alexa-Echo-MCP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sfls1397/Alexa-Echo-MCP/issues"
+  },
+  "homepage": "https://github.com/sfls1397/Alexa-Echo-MCP#readme",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "alexa",
+    "echo",
+    "alexa-remote2",
+    "macos"
+  ],
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "os": [
+    "darwin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist/",
+    "bin/",
+    "examples/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepare": "tsc",
+    "start": "node dist/cli.js",
+    "serve": "node dist/cli.js serve",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "alexa-remote2": "8.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
