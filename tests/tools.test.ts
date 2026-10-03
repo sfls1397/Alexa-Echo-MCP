@@ -8,6 +8,7 @@ import {
   resolveEcho,
   stripWakeWord,
   toolDefinitions,
+  TOOL_LIST_ROUTINES,
   TOOL_RUN_ROUTINE,
   TOOL_SPEAK,
   TOOL_TEXT_COMMAND
@@ -40,7 +41,7 @@ describe("routines", () => {
     const list = [routine("Good Night"), routine("Morning")];
     expect(findRoutine("Good Night", list).name).toBe("Good Night");
     expect(() => findRoutine("good night", list)).toThrow(/Did you mean "Good Night"/);
-    expect(() => findRoutine("Nope", list)).toThrow(/No Alexa routine named exactly "Nope"\.$/);
+    expect(() => findRoutine("Nope", list)).toThrow(/No Alexa routine named exactly "Nope"\. Use alexa_list_routines/);
   });
 
   it("refuses ambiguous duplicates", () => {
@@ -49,10 +50,10 @@ describe("routines", () => {
 });
 
 describe("tools", () => {
-  it("lists exactly three tools with the real Echo names as the enum", async () => {
+  it("lists the three actions plus the read-only finder, with the real Echo names as the enum", async () => {
     const { backend } = fakeAlexa();
     const defs = await toolDefinitions({ alexa: backend, aliases: ALIASES });
-    expect(defs.map((d) => d.name)).toEqual([TOOL_SPEAK, TOOL_RUN_ROUTINE, TOOL_TEXT_COMMAND]);
+    expect(defs.map((d) => d.name)).toEqual([TOOL_SPEAK, TOOL_LIST_ROUTINES, TOOL_RUN_ROUTINE, TOOL_TEXT_COMMAND]);
     const echo = (defs[0].inputSchema.properties as Record<string, { enum?: string[] }>).echo;
     expect(echo.enum).toEqual(["Echo - Den", "Porch Echo"]);
   });
@@ -63,7 +64,7 @@ describe("tools", () => {
       throw new Error("Not signed in");
     };
     const defs = await toolDefinitions({ alexa: backend, aliases: ALIASES });
-    const echo = (defs[2].inputSchema.properties as Record<string, { enum?: string[] }>).echo;
+    const echo = (defs[3].inputSchema.properties as Record<string, { enum?: string[] }>).echo;
     expect(echo.enum).toEqual(["Echo - Den"]);
   });
 
@@ -83,13 +84,21 @@ describe("tools", () => {
     expect(calls).toEqual([]);
   });
 
-  it("runs a routine by exact name and flags disabled ones", async () => {
-    const { backend, calls } = fakeAlexa([routine("Lights Off", false)]);
+  it("runs an enabled routine by exact name", async () => {
+    const { backend, calls } = fakeAlexa([routine("Lights Off")]);
     const out = JSON.parse(
       await callTool({ alexa: backend, aliases: ALIASES }, TOOL_RUN_ROUTINE, { routine: "Lights Off", echo: "Porch Echo" })
     );
     expect(calls).toEqual(["routine SERIAL-B Lights Off"]);
-    expect(out.warning).toMatch(/disabled/);
+    expect(out).toMatchObject({ ok: true, routine: "Lights Off" });
+  });
+
+  it("refuses a disabled routine and runs nothing", async () => {
+    const { backend, calls } = fakeAlexa([routine("Lights Off", false)]);
+    await expect(
+      callTool({ alexa: backend, aliases: ALIASES }, TOOL_RUN_ROUTINE, { routine: "Lights Off", echo: "Porch Echo" })
+    ).rejects.toThrow(/turned off in the Alexa app/);
+    expect(calls).toEqual([]);
   });
 
   it("sends a text command without the wake word", async () => {
@@ -110,5 +119,54 @@ describe("tools", () => {
     expect(stripWakeWord("Alexa play jazz")).toBe("play jazz");
     expect(stripWakeWord("echo, what time is it")).toBe("what time is it");
     expect(stripWakeWord("play alexa radio")).toBe("play alexa radio");
+  });
+});
+
+describe("alexa_list_routines", () => {
+  const routines = [
+    {
+      name: "Bedtime",
+      enabled: true,
+      raw: {
+        name: "Bedtime",
+        triggers: [{ type: "CustomUtterance", payload: { utterances: ["bedtime", "lights out"] } }],
+        sequence: {
+          "@type": "Sequence",
+          startNode: {
+            "@type": "SerialNode",
+            nodesToExecute: [
+              { "@type": "ParallelNode", nodesToExecute: [
+                { type: "Alexa.SmartHome.Batch", operationPayload: { target: "virtual@LIGHT@X", filter: { includeList: ["a", "b"] }, operations: [{ type: "turnOn" }, { type: "setBrightness", brightness: 5 }] } }
+              ] },
+              { type: "Alexa.Speak", operationPayload: { textToSpeak: "good night" } },
+              { type: "Alexa.LLM.CustomTextCommand", operationPayload: { text: "ask door control to close the shed" } }
+            ]
+          }
+        }
+      }
+    },
+    {
+      name: "Away",
+      enabled: false,
+      raw: {
+        name: "Away",
+        triggers: [{ type: "Alexa.Trigger.HomeModes.ModeRoutineStateChange", payload: { state: "AWAY" } }, { type: "geoFenceTriggerEvent", payload: {} }],
+        sequence: { startNode: { type: "Alexa.SmartHome.Batch", operationPayload: { target: "virtual@LIGHT@X", operations: [{ type: "turnOff" }] } } }
+      }
+    }
+  ];
+
+  it("returns enabled routines in plain words, sorted, and runs nothing", async () => {
+    const { backend, calls } = fakeAlexa(routines);
+    const out = JSON.parse(await callTool({ alexa: backend, aliases: ALIASES }, TOOL_LIST_ROUTINES, {}));
+    expect(calls).toEqual([]);
+    expect(out.routines).toEqual([
+      {
+        name: "Bedtime",
+        voicePhrases: ["bedtime", "lights out"],
+        otherTriggers: [],
+        steps: ["Smart home: lights (2): turn on, brightness 5%", 'Alexa says: "good night"', 'Tells Alexa: "ask door control to close the shed"']
+      }
+    ]);
   });
 });
