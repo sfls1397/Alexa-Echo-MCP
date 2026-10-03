@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Alexa Echo MCP HTTP server (KeepAlive), port 8426 by default.
+  REPLACE_NODE = absolute node 22.5+ binary, REPLACE_REPO = checkout or global
+  package path, REPLACE_HOME = home directory. examples/install-launchagent.sh fills these.
+  The Amazon session and the bearer token are read from the login Keychain.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.alexa-echo-mcp.server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>REPLACE_NODE</string>
+    <string>--no-deprecation</string>
+    <string>REPLACE_REPO/bin/alexa-echo-mcp.js</string>
+    <string>serve</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>WorkingDirectory</key>
+  <string>REPLACE_HOME</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>HOME</key>
+    <string>REPLACE_HOME</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>REPLACE_HOME/Library/Logs/alexa-echo-mcp.server.log</string>
+  <key>StandardErrorPath</key>
+  <string>REPLACE_HOME/Library/Logs/alexa-echo-mcp.server.log</string>
+</dict>
+</plist>
