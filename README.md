@@ -1,19 +1,22 @@
 # Alexa Echo MCP
 
 A small MCP server that lets an AI assistant drive **your own** Amazon Echo
-devices. It runs on a Mac as a LaunchAgent and exposes three actions plus one
-read-only helper:
+devices and the smart-home devices on your Alexa account. It runs on a Mac as a
+LaunchAgent and exposes these tools:
 
 | Tool | What it does |
 | --- | --- |
 | `alexa_speak` | Make a named Echo say a message out loud (up to 250 characters). |
 | `alexa_run_routine` | Run an existing, enabled Alexa routine by its **exact** name, on a named Echo. Disabled routines are refused. |
 | `alexa_text_command` | Send a command to a named Echo as if it had been spoken to it, e.g. "turn off the kitchen light" or "play jazz". |
-| `alexa_list_routines` | Read-only. Lists every enabled routine (disabled ones are left out) with its voice phrases, other triggers and what each step does, in plain words. When you describe what you want ("make it dark for bed") rather than naming a routine, the AI reads this list, picks the routine by meaning, and runs it with `alexa_run_routine`. |
+| `alexa_list_routines` | Read-only. Lists every enabled routine (disabled ones are left out) with its voice phrases, other triggers and what each step does, in plain words. When you describe what you want ("make it dark for bed") rather than naming a routine, the AI reads this list, picks the routine by meaning, and runs it with `alexa_run_routine`. Routine steps name the devices they touch. |
+| `alexa_list_devices` | Read-only. Lists the smart-home devices (lights, plugs, TV, …) that are online right now, with each one's type, what it can do and its current state (on/off, brightness). Offline and disabled devices are left out. |
+| `alexa_control_device` | Turn an online device on or off, or set a light's brightness (0–100%), by its exact name. Refuses offline devices and controls the device doesn't have, and returns the state afterwards. |
 
-That's all it does. There's no Drop In, calling, volume or playback control,
-and no reading device state. There's no matching logic in the server: picking a
-routine from loose wording is left to the AI model calling the tools.
+That's all it does. There's no Drop In, calling, or Echo volume/playback
+control. Echoes and speakers aren't in the device list; use the speak and
+text-command tools for them. There's no matching logic in the server: picking a
+routine or device from loose wording is left to the AI model calling the tools.
 
 ## ⚠️ Unofficial: read this first
 

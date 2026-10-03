@@ -9,6 +9,7 @@
 import { createRequire } from "node:module";
 import type { ResolvedConfig } from "../config.js";
 import { getLoginDevicePath } from "../paths.js";
+import { checkControlResponse, parseDeviceStates, toSmartDevices, type DeviceState, type SmartDevice } from "./devices.js";
 import { isRegistrationData, type RegistrationData, type SessionStore } from "./session.js";
 
 const require = createRequire(import.meta.url);
@@ -43,6 +44,11 @@ export interface AlexaBackend {
   textCommand(serial: string, text: string): Promise<void>;
   routines(): Promise<Routine[]>;
   runRoutine(serial: string, routine: Routine): Promise<void>;
+  /** Enabled, controllable smart-home devices (not Echoes/speakers). */
+  devices(): Promise<SmartDevice[]>;
+  /** Live state by applianceId; anything missing or erroring is offline. */
+  deviceStates(applianceIds: string[]): Promise<Map<string, DeviceState>>;
+  controlDevice(applianceId: string, parameters: Record<string, unknown>): Promise<void>;
 }
 
 type Callback = (err: Error | null | undefined, res?: unknown) => void;
@@ -58,6 +64,9 @@ interface AlexaRemoteLike {
   createSequenceNode(command: string, value: string, serial: string): Record<string, unknown> | null;
   sendSequenceCommand(serial: string, command: Record<string, unknown>, callback: Callback): void;
   getAutomationRoutines(callback: Callback): void;
+  getSmarthomeDevicesV2(callback: Callback): void;
+  querySmarthomeDevices(ids: string[], entityType: string, callback: Callback): void;
+  executeSmarthomeDeviceAction(ids: string[], parameters: Record<string, unknown>, entityType: string, callback: Callback): void;
   stop(): void;
 }
 
@@ -254,6 +263,29 @@ export class AlexaService implements AlexaBackend {
         out.push({ name: item.name, enabled: item.status === "ENABLED", raw: item });
       }
       return out;
+    });
+  }
+
+  async devices(): Promise<SmartDevice[]> {
+    return this.withRemote(async (remote) => {
+      const items = await promisify<unknown>((cb) => remote.getSmarthomeDevicesV2(cb));
+      if (!Array.isArray(items)) throw new Error("Amazon returned no device list");
+      return toSmartDevices(items);
+    });
+  }
+
+  async deviceStates(applianceIds: string[]): Promise<Map<string, DeviceState>> {
+    if (!applianceIds.length) return new Map();
+    return this.withRemote(async (remote) => {
+      const res = await promisify<unknown>((cb) => remote.querySmarthomeDevices(applianceIds, "APPLIANCE", cb));
+      return parseDeviceStates(res);
+    });
+  }
+
+  async controlDevice(applianceId: string, parameters: Record<string, unknown>): Promise<void> {
+    await this.withRemote(async (remote) => {
+      const res = await promisify<unknown>((cb) => remote.executeSmarthomeDeviceAction([applianceId], parameters, "APPLIANCE", cb));
+      checkControlResponse(res);
     });
   }
 
