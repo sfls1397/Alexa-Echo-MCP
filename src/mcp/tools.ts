@@ -105,17 +105,11 @@ function echoProperty(names: string[]): Record<string, unknown> {
 
 /** Tool list. When signed in, the `echo` argument lists the real Echo names. */
 export async function toolDefinitions(ctx: ToolContext): Promise<ToolDefinition[]> {
-  let deviceNameList: string[] = [];
-  try {
-    deviceNameList = (await ctx.alexa.devices()).map((d) => d.name);
-  } catch {
-    deviceNameList = [];
-  }
+  // No enum here: names come from alexa_list_devices, which only lists online devices.
   const deviceProp: Record<string, unknown> = {
     type: "string",
-    description: `The device's exact name from ${TOOL_LIST_DEVICES}. Do not make up names.`
+    description: `The device's exact name from ${TOOL_LIST_DEVICES} (online devices only). Do not make up names.`
   };
-  if (deviceNameList.length) deviceProp.enum = deviceNameList;
   let names: string[] = [];
   try {
     names = echoNames(await ctx.alexa.echoes(), ctx.aliases);
