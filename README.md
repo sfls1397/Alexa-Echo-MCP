@@ -1,16 +1,19 @@
 # Alexa Echo MCP
 
 A small MCP server that lets an AI assistant drive **your own** Amazon Echo
-devices. It runs on a Mac as a LaunchAgent and exposes three tools:
+devices. It runs on a Mac as a LaunchAgent and exposes three actions plus one
+read-only helper:
 
 | Tool | What it does |
 | --- | --- |
 | `alexa_speak` | Make a named Echo say a message out loud (up to 250 characters). |
 | `alexa_run_routine` | Run an existing Alexa routine by its **exact** name, on a named Echo. |
 | `alexa_text_command` | Send a command to a named Echo as if it had been spoken to it, e.g. "turn off the kitchen light" or "play jazz". |
+| `alexa_list_routines` | Read-only. Lists every routine with its voice phrases, other triggers and what each step does, in plain words. When you describe what you want ("make it dark for bed") rather than naming a routine, the AI reads this list, picks the routine by meaning, and runs it with `alexa_run_routine`. |
 
 That's all it does. There's no Drop In, calling, volume or playback control,
-and no reading device state.
+and no reading device state. There's no matching logic in the server: picking a
+routine from loose wording is left to the AI model calling the tools.
 
 ## ⚠️ Unofficial: read this first
 
