@@ -1,0 +1,11 @@
+{
+  "serverHost": "0.0.0.0",
+  "serverPort": 8426,
+  "loginPort": 8427,
+  "amazonPage": "amazon.com",
+  "locale": "en-US",
+  "echoes": {
+    "Upstairs Speaker": "Den Echo",
+    "Porch": "Porch Echo Show"
+  }
+}
