@@ -16,5 +16,8 @@ sed -e "s#REPLACE_NODE#$NODE#g" -e "s#REPLACE_REPO#$REPO#g" -e "s#REPLACE_HOME#$
 plutil -lint "$plist.tmp" >/dev/null
 mv "$plist.tmp" "$plist"
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
+# bootout returns before the old instance is gone; bootstrap then fails with error 5.
+i=0
+while launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 && [ $i -lt 20 ]; do sleep 0.5; i=$((i + 1)); done
 launchctl bootstrap "gui/$(id -u)" "$plist"
 echo "Loaded $LABEL"
