@@ -84,13 +84,21 @@ describe("tools", () => {
     expect(calls).toEqual([]);
   });
 
-  it("runs a routine by exact name and flags disabled ones", async () => {
-    const { backend, calls } = fakeAlexa([routine("Lights Off", false)]);
+  it("runs an enabled routine by exact name", async () => {
+    const { backend, calls } = fakeAlexa([routine("Lights Off")]);
     const out = JSON.parse(
       await callTool({ alexa: backend, aliases: ALIASES }, TOOL_RUN_ROUTINE, { routine: "Lights Off", echo: "Porch Echo" })
     );
     expect(calls).toEqual(["routine SERIAL-B Lights Off"]);
-    expect(out.warning).toMatch(/disabled/);
+    expect(out).toMatchObject({ ok: true, routine: "Lights Off" });
+  });
+
+  it("refuses a disabled routine and runs nothing", async () => {
+    const { backend, calls } = fakeAlexa([routine("Lights Off", false)]);
+    await expect(
+      callTool({ alexa: backend, aliases: ALIASES }, TOOL_RUN_ROUTINE, { routine: "Lights Off", echo: "Porch Echo" })
+    ).rejects.toThrow(/turned off in the Alexa app/);
+    expect(calls).toEqual([]);
   });
 
   it("sends a text command without the wake word", async () => {
@@ -148,15 +156,13 @@ describe("alexa_list_routines", () => {
     }
   ];
 
-  it("returns every routine in plain words, sorted, and runs nothing", async () => {
+  it("returns enabled routines in plain words, sorted, and runs nothing", async () => {
     const { backend, calls } = fakeAlexa(routines);
     const out = JSON.parse(await callTool({ alexa: backend, aliases: ALIASES }, TOOL_LIST_ROUTINES, {}));
     expect(calls).toEqual([]);
     expect(out.routines).toEqual([
-      { name: "Away", enabled: false, voicePhrases: [], otherTriggers: ["home mode: AWAY", "location"], steps: ["Smart home: all lights: turn off"] },
       {
         name: "Bedtime",
-        enabled: true,
         voicePhrases: ["bedtime", "lights out"],
         otherTriggers: [],
         steps: ["Smart home: lights (2): turn on, brightness 5%", 'Alexa says: "good night"', 'Tells Alexa: "ask door control to close the shed"']

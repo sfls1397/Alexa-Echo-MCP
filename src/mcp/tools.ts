@@ -105,12 +105,12 @@ export async function toolDefinitions(ctx: ToolContext): Promise<ToolDefinition[
     },
     {
       name: TOOL_LIST_ROUTINES,
-      description: `List every Alexa routine with its voice phrases, other triggers, and what each step does, in plain words. Read-only: runs nothing. Use it when the user describes what they want instead of saying a routine's exact name ("make it dark for bed", "shut the garage"): pick the routine whose steps do that, by meaning, then call ${TOOL_RUN_ROUTINE} with its exact name. If more than one could fit, or none clearly does, ask the user.`,
+      description: `List every enabled Alexa routine with its voice phrases, other triggers, and what each step does, in plain words. Read-only: runs nothing. Use it when the user describes what they want instead of saying a routine's exact name ("make it dark for bed", "shut the garage"): pick the routine whose steps do that, by meaning, then call ${TOOL_RUN_ROUTINE} with its exact name. If more than one could fit, or none clearly does, ask the user.`,
       inputSchema: { type: "object", properties: {}, additionalProperties: false }
     },
     {
       name: TOOL_RUN_ROUTINE,
-      description: `Run an existing Alexa routine by its exact name (as shown in the Alexa app), on a named Echo. Steps that say "the device you speak to" use that Echo. ${NO_REPLY}`,
+      description: `Run an existing, enabled Alexa routine by its exact name (as shown in the Alexa app), on a named Echo. Disabled routines are refused. Steps that say "the device you speak to" use that Echo. ${NO_REPLY}`,
       inputSchema: {
         type: "object",
         properties: {
@@ -170,15 +170,11 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
       const echoName = requireString(args, "echo");
       const echo = resolveEcho(echoName, await ctx.alexa.echoes(), ctx.aliases);
       const routine = findRoutine(routineName, await ctx.alexa.routines());
+      if (!routine.enabled) {
+        throw new Error(`"${routine.name}" is turned off in the Alexa app, so it won't be run. Turn it on there first if you want to use it.`);
+      }
       await ctx.alexa.runRoutine(echo.serial, routine);
-      return JSON.stringify({
-        ok: true,
-        routine: routine.name,
-        echo: echoName,
-        alexaName: echo.name,
-        ...(routine.enabled ? {} : { warning: "This routine is disabled in the Alexa app; it was run anyway." }),
-        note: NO_REPLY
-      });
+      return JSON.stringify({ ok: true, routine: routine.name, echo: echoName, alexaName: echo.name, note: NO_REPLY });
     }
     case TOOL_TEXT_COMMAND: {
       const echoName = requireString(args, "echo");
@@ -189,7 +185,12 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
       return JSON.stringify({ ok: true, echo: echoName, alexaName: echo.name, command, note: NO_REPLY });
     }
     case TOOL_LIST_ROUTINES: {
-      const routines = (await ctx.alexa.routines()).map(summarizeRoutine).sort((a, b) => a.name.localeCompare(b.name));
+      // Disabled routines are left out: they aren't offered and can't be run.
+      const routines = (await ctx.alexa.routines())
+        .filter((r) => r.enabled)
+        .map(summarizeRoutine)
+        .map(({ enabled: _enabled, ...rest }) => rest)
+        .sort((a, b) => a.name.localeCompare(b.name));
       return JSON.stringify({ routines });
     }
     default:

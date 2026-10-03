@@ -1,6 +1,6 @@
 {
   "name": "alexa-echo-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Small MCP server that drives your own Amazon Echo devices through the unofficial Alexa app session (alexa-remote2): speak a message, run a routine by name, or send a text command",
   "type": "module",
   "main": "dist/cli.js",
