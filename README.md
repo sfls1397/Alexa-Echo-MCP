@@ -156,3 +156,26 @@ port-forward 8426. For access away from home, use a VPN such as Tailscale.
 
 MIT. Alexa and Echo are trademarks of Amazon. This project isn't affiliated
 with or endorsed by Amazon.
+
+
+## Privacy checks and local settings
+
+Household aliases live only in `~/.alexa-echo-mcp/config.json`. Enter them
+once; package upgrades reuse that file and the existing Keychain session.
+Never commit household names, device identifiers, sign-in data or HTTP tokens.
+Test devices use synthetic serials (`SERIAL-A`, `SERIAL-B`, single-letter
+identifiers), mock appliance IDs and placeholder names. HTTP authentication
+tests use visibly fake tokens; none is a production credential.
+
+Install Gitleaks 8.30.1 and enable the staged gate once per clone:
+
+```bash
+git config core.hooksPath .githooks
+gitleaks git --log-opts=--all --config .gitleaks.toml --redact=100 --no-banner .
+npm run build && npm run scan:package
+```
+
+Push and pull-request CI scan full fetched history and the exact npm file
+list. The `prepublishOnly` gate rebuilds and scans before publication;
+GitHub Release publishing uses OIDC with provenance. After a history rewrite,
+discard old clones and re-clone. Merging old history can restore removed data.
