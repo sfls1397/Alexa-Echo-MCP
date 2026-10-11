@@ -1,0 +1,33 @@
+{
+  "audit": [
+    {
+      "package": "alexa-cookie2",
+      "sha256": "154574a903a39f95f972b68167f604dc9e730da7da427979423841c841764992",
+      "expires": "2026-11-10",
+      "reason": "Existing production dependency advisory; upgrade and compatibility-test in a separately versioned product release. This tooling-only change does not deploy dependency updates.",
+      "tracking": "FINDINGS.md#dependency-findings; upstream advisories listed here"
+    },
+    {
+      "package": "braces",
+      "sha256": "cc56513847bfdce8f99a749788d2474d1ea99e99afcb4a8551e75eac28f093cb",
+      "expires": "2026-11-10",
+      "reason": "Existing production dependency advisory; upgrade and compatibility-test in a separately versioned product release. This tooling-only change does not deploy dependency updates.",
+      "tracking": "FINDINGS.md#dependency-findings; upstream advisories listed here"
+    },
+    {
+      "package": "http-proxy-middleware",
+      "sha256": "a545d9c35eb82815fa991b5f82568214bfdaa91051eeae95d296f4ead2875e1d",
+      "expires": "2026-11-10",
+      "reason": "Existing production dependency advisory; upgrade and compatibility-test in a separately versioned product release. This tooling-only change does not deploy dependency updates.",
+      "tracking": "FINDINGS.md#dependency-findings; upstream advisories listed here"
+    },
+    {
+      "package": "micromatch",
+      "sha256": "4727080007a094088790a33ce8ede0a5fe0d025370679269c8df38965ed19197",
+      "expires": "2026-11-10",
+      "reason": "Existing production dependency advisory; upgrade and compatibility-test in a separately versioned product release. This tooling-only change does not deploy dependency updates.",
+      "tracking": "FINDINGS.md#dependency-findings; upstream advisories listed here"
+    }
+  ],
+  "semgrep": []
+}
