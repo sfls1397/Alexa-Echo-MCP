@@ -119,15 +119,18 @@ describe("AlexaService", () => {
 });
 
 describe("keychainSessionStore", () => {
-  it("round-trips through security(1) argv as base64 and rejects junk", () => {
+  it("round-trips via stdin as base64 without exposing session bytes in argv", () => {
     const items = new Map<string, string>();
-    const exec = ((file: string, args: string[]) => {
-      expect(file).toBe("/usr/bin/security");
-      const key = `${args[args.indexOf("-s") + 1]}/${args[args.indexOf("-a") + 1]}`;
-      if (args[0] === "add-generic-password") {
-        items.set(key, args[args.indexOf("-w") + 1]);
+    const exec = ((file: string, args: string[], options?: { input?: string }) => {
+      if (options?.input !== undefined) {
+        expect(args).toEqual(["-i"]);
+        const parts = /^add-generic-password -U -s "([^"\\]+)" -a "([^"\\]+)" -w "([^"\\]+)"\n$/.exec(options.input);
+        if (!parts) throw new Error("invalid command fixture");
+        items.set(parts[1] + "/" + parts[2], parts[3]!);
         return Buffer.from("");
       }
+      expect(file).toBe("/usr/bin/security");
+      const key = `${args[args.indexOf("-s") + 1]}/${args[args.indexOf("-a") + 1]}`;
       if (args[0] === "find-generic-password") {
         const v = items.get(key);
         if (v === undefined) throw new Error("not found");
