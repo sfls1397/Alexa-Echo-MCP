@@ -4,8 +4,8 @@
 # Usage: sh examples/install-launchagent.sh [/absolute/path/to/node]
 # Secrets stay in the Keychain; this script never reads or prints them.
 set -eu
-DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-REPO=$(CDPATH= cd -- "$DIR/.." && pwd)
+DIR=$(CDPATH='' cd -- "$(dirname "$0")" && pwd)
+REPO=$(CDPATH='' cd -- "$DIR/.." && pwd)
 NODE=${1:-$(command -v node || true)}
 LABEL=com.alexa-echo-mcp.server
 test -x "$NODE" || { echo "Node 22.5+ binary not found; pass its absolute path" >&2; exit 1; }
