@@ -78,17 +78,23 @@ to the Alexa app names in `~/.alexa-echo-mcp/config.json`:
 Only names that really exist are accepted, either a mapped name or an Echo's
 Alexa app name. The tools list the valid names in their `echo` argument and
 reject anything else. See `examples/config.json.example` for every setting
-(`serverPort` 8426, `loginPort` 8427, `amazonPage` e.g. `amazon.co.uk`,
-`locale` e.g. `en-GB`).
+(`serverHost` 0.0.0.0, `serverPort` 8426, `loginPort` 8427, `amazonPage` e.g.
+`amazon.co.uk`, `locale` e.g. `en-GB`). `alexa-echo-mcp check-config` prints
+the settings it resolved.
 
 ### Run it as a LaunchAgent
 
+From a global install:
+
 ```bash
-sh examples/install-launchagent.sh "$(command -v node)"
+sh "$(npm root -g)/alexa-echo-mcp/examples/install-launchagent.sh" "$(command -v node)"
 ```
 
+From a clone, after `npm run build`: `sh examples/install-launchagent.sh "$(command -v node)"`.
+
 This installs `com.alexa-echo-mcp.server` (KeepAlive). It serves Streamable
-HTTP MCP on `0.0.0.0:8426/mcp`, logging to
+HTTP MCP on `0.0.0.0:8426/mcp` (all network interfaces; set `serverHost` to
+`127.0.0.1` to accept only clients on this Mac), logging to
 `~/Library/Logs/alexa-echo-mcp.server.log`. Every request needs a bearer
 token, generated on first start and kept in the Keychain (service
 `alexa-echo-mcp-http`, account `http-auth-token`). Print it with:
@@ -175,7 +181,9 @@ gitleaks git --log-opts=--all --config .gitleaks.toml --redact=100 --no-banner .
 npm run build && npm run scan:package
 ```
 
-Push and pull-request CI scan full fetched history and the exact npm file
-list. The `prepublishOnly` gate rebuilds and scans before publication;
+Before a pull request is merged, `python3 .security/local-gate.py <PR number>`
+runs Gitleaks, the production `npm audit`, offline Semgrep and the tests on the
+exact PR head and records the result as the `local-gate` status. Push and
+pull-request CI also scan full fetched history and the exact npm file list. The `prepublishOnly` gate rebuilds and scans before publication;
 GitHub Release publishing uses OIDC with provenance. After a history rewrite,
 discard old clones and re-clone. Merging old history can restore removed data.
