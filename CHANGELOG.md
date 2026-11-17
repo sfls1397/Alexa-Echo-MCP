@@ -2,7 +2,7 @@
 
 ## 1.3.3
 
-- The HTTP server reads its bearer token from `ALEXA_ECHO_MCP_TOKEN` first when it is set and not blank, so a secrets manager can inject it at launch; the Keychain item stays the fallback, unchanged. `http-token`, the Amazon session and sign-in are unchanged.
+- The HTTP server reads its bearer token from `ALEXA_ECHO_MCP_TOKEN` first when it is set and not blank, so a secrets manager can inject it at launch; the Keychain item stays the fallback, unchanged. `http-token` still prints only the Keychain token (generating one if missing); the Amazon session and sign-in are unchanged.
 
 ## 1.3.2
 

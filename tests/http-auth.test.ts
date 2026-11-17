@@ -73,6 +73,20 @@ describe("loadOrCreateHttpAuthToken", () => {
     expect(logs.join("\n")).not.toContain(ENV_FIXTURE);
   });
 
+  it("env: {} (the http-token command) ignores an ALEXA_ECHO_MCP_TOKEN in process.env and generates into the Keychain", () => {
+    const saved = process.env[ENV_TOKEN_VAR];
+    process.env[ENV_TOKEN_VAR] = ENV_FIXTURE;
+    try {
+      const exec = keychainHolding(null);
+      const result = loadOrCreateHttpAuthToken({ env: {}, execFileSync: exec as any, randomBytes: fixedBytes, log: quiet });
+      expect(result).toEqual({ token: "ab".repeat(32), generated: true });
+      expect(exec.mock.calls.map((c) => c[1][0])).toEqual(["find-generic-password", "-i"]);
+    } finally {
+      if (saved === undefined) delete process.env[ENV_TOKEN_VAR];
+      else process.env[ENV_TOKEN_VAR] = saved;
+    }
+  });
+
   it("reads process.env when no env option is given", () => {
     const saved = process.env[ENV_TOKEN_VAR];
     process.env[ENV_TOKEN_VAR] = ENV_FIXTURE;

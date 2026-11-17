@@ -41,7 +41,8 @@ async function main(): Promise<void> {
   fs.mkdirSync(getAppDir(), { recursive: true, mode: 0o700 });
 
   if (command === "http-token") {
-    console.log(readKeychainSecret(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT) ?? loadOrCreateHttpAuthToken().token);
+    // Keychain only: an ALEXA_ECHO_MCP_TOKEN in this shell (e.g. set for http-proxy) must not stand in for it.
+    console.log(readKeychainSecret(KEYCHAIN_SERVICE, KEYCHAIN_ACCOUNT) ?? loadOrCreateHttpAuthToken({ env: {} }).token);
     return;
   }
   if (command === "http-proxy") {
