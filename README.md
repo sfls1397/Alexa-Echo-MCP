@@ -97,7 +97,10 @@ HTTP MCP on `0.0.0.0:8426/mcp` (all network interfaces; set `serverHost` to
 `127.0.0.1` to accept only clients on this Mac), logging to
 `~/Library/Logs/alexa-echo-mcp.server.log`. Every request needs a bearer
 token, generated on first start and kept in the Keychain (service
-`alexa-echo-mcp-http`, account `http-auth-token`). Print it with:
+`alexa-echo-mcp-http`, account `http-auth-token`). If the server starts with
+`ALEXA_ECHO_MCP_TOKEN` set and not blank (for example injected by a secrets
+manager), it uses that value instead and never reads the Keychain item.
+Print the Keychain token with:
 
 ```bash
 alexa-echo-mcp http-token
