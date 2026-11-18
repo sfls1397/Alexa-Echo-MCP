@@ -8,17 +8,21 @@ Offline ruleset v1 has 13 reviewed JavaScript/TypeScript and Python rules for dy
 
 ## Dependency Findings
 
-- `alexa-cookie2` high, installed 5.0.6: via cookie; via http-proxy-middleware. Historical baseline fingerprint accepted until 2026-12-10; see the re-check below.
+- `alexa-cookie2` high, installed 5.0.6: via cookie; via http-proxy-middleware. Fingerprint re-pinned on 2026-11-17 for the picomatch chain and accepted until 2026-12-10; see the 2026-11-17 re-check below.
 
 - `alexa-remote2` low, installed 8.1.1: via alexa-cookie2. Below the configured high threshold; reported, not suppressed.
 
-- `braces` high, installed 3.0.3: historical stack-exhaustion advisory (https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), withdrawn on 2026-10-23. Historical baseline fingerprint accepted until 2026-12-10; see the re-check below.
-
 - `cookie` low, installed 0.6.0: cookie accepts cookie name, path, and domain with out of bounds characters (https://github.com/advisories/GHSA-pxg6-pf52-xh8x). Below the configured high threshold; reported, not suppressed.
 
-- `http-proxy-middleware` high, installed 2.0.10: via micromatch. Historical baseline fingerprint accepted until 2026-12-10; see the re-check below.
+- `http-proxy-middleware` high, installed 2.0.10: via micromatch. Fingerprint re-pinned on 2026-11-17 for the picomatch chain and accepted until 2026-12-10; see the 2026-11-17 re-check below.
 
-- `micromatch` high, installed 4.0.8: via braces. Historical baseline fingerprint accepted until 2026-12-10; see the re-check below.
+- `micromatch` high, installed 4.0.8: via picomatch (was via braces). Fingerprint re-pinned on 2026-11-17 and accepted until 2026-12-10; see the 2026-11-17 re-check below.
+
+- `picomatch` high, installed 2.3.2: ReDoS through single-branch repeated extglobs (https://github.com/advisories/GHSA-fc5q-39xc-vjpf), affected through 4.0.7, no patched release. Accepted until 2026-12-10; see the 2026-11-17 re-check below.
+
+- `hono` moderate, installed 4.13.14, and `@hono/node-server` moderate, installed 2.1.5 (via `@modelcontextprotocol/sdk`). Below the configured high threshold; reported, not suppressed; see the 2026-11-17 re-check below.
+
+- `braces`: the historical stack-exhaustion advisory (https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) was withdrawn on 2026-10-23 and production audit no longer reports it, so its exception was removed on 2026-11-17.
 
 ### 2026-11-09 Re-check and Exception Renewal
 
@@ -27,6 +31,18 @@ The public npm registry still lists `alexa-remote2` 8.1.1, `alexa-cookie2` 5.0.6
 The four existing historical exceptions were due to expire on 2026-11-10. The standing weekly re-check requires a 30-day extension when no patched path exists and expiry is within seven days, so their expiry is extended to 2026-12-10. Package names, fingerprints, reasons and tracking scope remain unchanged. These entries do not accept any new or changed finding, and do not change the production dependencies or runtime. The weekly re-check remains in place.
 
 Separately, the production lockfile's `follow-redirects` 1.16.1 triggered GHSA-mrwp-f3q8-3g9p (https://github.com/advisories/GHSA-mrwp-f3q8-3g9p). It is updated to the patched 1.16.2 within `http-proxy`'s existing dependency range. No exception is added for this finding, and `alexa-remote2` remains 8.1.1. Loopback-only regression tests cover same-realm and cross-realm sensitive-header lists with object and array headers, preserving harmless headers while removing sensitive headers on cross-origin redirects.
+
+### 2026-11-17 Picomatch Advisory Re-check
+
+Main's push-time scan went red: production `npm audit` now reports `picomatch` high for GHSA-fc5q-39xc-vjpf ("ReDoS through single-branch repeated extglobs", affected `<=4.0.7`). That is a new finding, and it changes the advisory chain for `micromatch` (now via picomatch instead of braces), `http-proxy-middleware` and `alexa-cookie2`, so their pinned fingerprints no longer matched.
+
+Patched path: none. The public npm registry lists `picomatch` 4.0.7 as latest (no fixed release on any line, including the 2.x line `micromatch` 4.0.8 requires through `^2.3.1`), and `micromatch` 4.0.8, `alexa-cookie2` 5.0.6 and `alexa-remote2` 8.1.1 are still latest. `http-proxy-middleware` 2.0.12 still depends on `micromatch ^4.0.2`, so no in-range lockfile update removes picomatch. Unlike the 2026-11-09 `follow-redirects` fix, no update is possible here.
+
+Reachability: the only production path is `alexa-remote2` > `alexa-cookie2` > `http-proxy-middleware` > `micromatch` > `picomatch`. The advisory needs an attacker-supplied glob pattern (for example `+(*)`); the matched string alone does not trigger it. `http-proxy-middleware` passes only its context pattern to micromatch, and `alexa-cookie2` creates its proxy with the hardcoded context `'!/cookie-success'`, which has no extglob. That proxy runs only during the one-time `login` command, bound to 127.0.0.1 (`src/alexa/login.ts`). The MCP server and the stdio/HTTP tools never call picomatch.
+
+Change: the four exceptions now pin exactly the four current high fingerprints (`alexa-cookie2`, `http-proxy-middleware`, `micromatch`, `picomatch`), each with the chain, reason and this section as tracking, expiring 2026-12-10 under the standing weekly re-check. The superseded fingerprints for `alexa-cookie2`, `http-proxy-middleware` and `micromatch` are replaced, not kept beside the new ones, and the stale `braces` exception is removed, so the policy accepts no more findings than before. Any further change to these chains, versions or advisories still blocks. Production dependencies and runtime are unchanged.
+
+Moderate advisories (below the high threshold; reported, not suppressed): `hono` <=4.13.15 (GHSA-4m76-xfj5-7975, GHSA-h7mg-cq63-vhpq, GHSA-3gg2-335m-rxc6, GHSA-46wx-v44x-9hh2, GHSA-4h7h-rv7c-7m2v) and `@hono/node-server` 2.0.0-2.1.5 (GHSA-qv5m-9pm6-hqp3, GHSA-jpvv-r467-5p4w), both through `@modelcontextprotocol/sdk`. The server uses only the SDK's `StreamableHTTPServerTransport`, which converts Node requests with `@hono/node-server`'s request listener; it builds no Hono app, router, `mount()`, `csrf()`, `validator()` or `css` helper and accepts no WebSocket upgrade. Its own Node handler checks the bearer token and the exact `/mcp`, `/` or `/health` path before the SDK sees a request. Patched releases (`hono` 4.13.19, `@hono/node-server` 2.1.9) fit the SDK's ranges and are left to the next versioned product release.
 
 
 ## Code Findings

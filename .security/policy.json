@@ -2,31 +2,31 @@
   "audit": [
     {
       "package": "alexa-cookie2",
-      "sha256": "154574a903a39f95f972b68167f604dc9e730da7da427979423841c841764992",
+      "sha256": "c6b98aca3af3b0272c365881f92c6838576a68667c942a2418c28ac7b1fbae31",
       "expires": "2026-12-10",
-      "reason": "Existing production dependency advisory; upgrade and compatibility-test in a separately versioned product release. This tooling-only change does not deploy dependency updates.",
-      "tracking": "FINDINGS.md#dependency-findings; upstream advisories listed here"
-    },
-    {
-      "package": "braces",
-      "sha256": "cc56513847bfdce8f99a749788d2474d1ea99e99afcb4a8551e75eac28f093cb",
-      "expires": "2026-12-10",
-      "reason": "Existing production dependency advisory; upgrade and compatibility-test in a separately versioned product release. This tooling-only change does not deploy dependency updates.",
-      "tracking": "FINDINGS.md#dependency-findings; upstream advisories listed here"
+      "reason": "Production chain alexa-remote2 8.1.1 > alexa-cookie2 5.0.6 > http-proxy-middleware 2.0.10 > micromatch 4.0.8 > picomatch 2.3.2. GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7) has no patched release; the only glob in this path is alexa-cookie2's hardcoded '!/cookie-success' context in its loopback-only, login-time proxy, so no untrusted extglob pattern reaches picomatch. Remove when a patched path exists.",
+      "tracking": "FINDINGS.md#2026-11-17-picomatch-advisory-re-check; https://github.com/advisories/GHSA-fc5q-39xc-vjpf; weekly re-check"
     },
     {
       "package": "http-proxy-middleware",
-      "sha256": "a545d9c35eb82815fa991b5f82568214bfdaa91051eeae95d296f4ead2875e1d",
+      "sha256": "a18ce09262e2019724b259238c5e8ede6ef7dfa03d78694efea9c3b97274138f",
       "expires": "2026-12-10",
-      "reason": "Existing production dependency advisory; upgrade and compatibility-test in a separately versioned product release. This tooling-only change does not deploy dependency updates.",
-      "tracking": "FINDINGS.md#dependency-findings; upstream advisories listed here"
+      "reason": "Production chain alexa-remote2 8.1.1 > alexa-cookie2 5.0.6 > http-proxy-middleware 2.0.10 > micromatch 4.0.8 > picomatch 2.3.2. GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7) has no patched release; the only glob in this path is alexa-cookie2's hardcoded '!/cookie-success' context in its loopback-only, login-time proxy, so no untrusted extglob pattern reaches picomatch. Remove when a patched path exists.",
+      "tracking": "FINDINGS.md#2026-11-17-picomatch-advisory-re-check; https://github.com/advisories/GHSA-fc5q-39xc-vjpf; weekly re-check"
     },
     {
       "package": "micromatch",
-      "sha256": "4727080007a094088790a33ce8ede0a5fe0d025370679269c8df38965ed19197",
+      "sha256": "19213c7805e6fdfe3d11602149fe4d34a99cbb8f785b50ca2a066d00587dddc7",
       "expires": "2026-12-10",
-      "reason": "Existing production dependency advisory; upgrade and compatibility-test in a separately versioned product release. This tooling-only change does not deploy dependency updates.",
-      "tracking": "FINDINGS.md#dependency-findings; upstream advisories listed here"
+      "reason": "Production chain alexa-remote2 8.1.1 > alexa-cookie2 5.0.6 > http-proxy-middleware 2.0.10 > micromatch 4.0.8 > picomatch 2.3.2. GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7) has no patched release; the only glob in this path is alexa-cookie2's hardcoded '!/cookie-success' context in its loopback-only, login-time proxy, so no untrusted extglob pattern reaches picomatch. Remove when a patched path exists.",
+      "tracking": "FINDINGS.md#2026-11-17-picomatch-advisory-re-check; https://github.com/advisories/GHSA-fc5q-39xc-vjpf; weekly re-check"
+    },
+    {
+      "package": "picomatch",
+      "sha256": "0c7dc24d1426b2e1aa950451f27080330c2a76b900002665c44920517e9f34ba",
+      "expires": "2026-12-10",
+      "reason": "Production chain alexa-remote2 8.1.1 > alexa-cookie2 5.0.6 > http-proxy-middleware 2.0.10 > micromatch 4.0.8 > picomatch 2.3.2. GHSA-fc5q-39xc-vjpf (picomatch <=4.0.7) has no patched release; the only glob in this path is alexa-cookie2's hardcoded '!/cookie-success' context in its loopback-only, login-time proxy, so no untrusted extglob pattern reaches picomatch. Remove when a patched path exists.",
+      "tracking": "FINDINGS.md#2026-11-17-picomatch-advisory-re-check; https://github.com/advisories/GHSA-fc5q-39xc-vjpf; weekly re-check"
     }
   ],
   "semgrep": []
