@@ -8,19 +8,17 @@ Offline ruleset v1 has 13 reviewed JavaScript/TypeScript and Python rules for dy
 
 ## Dependency Findings
 
-- `alexa-cookie2` high, installed 5.0.6: via cookie; via http-proxy-middleware. Fingerprint re-pinned on 2026-11-17 for the picomatch chain and accepted until 2026-12-10; see the 2026-11-17 re-check below.
+- `alexa-cookie2` low, installed 5.0.6: via cookie. The high picomatch-chain finding was cleared on 2026-11-18 (advisory withdrawn, exception removed); the low `cookie` finding remains below the configured high threshold, reported, not suppressed.
 
 - `alexa-remote2` low, installed 8.1.1: via alexa-cookie2. Below the configured high threshold; reported, not suppressed.
 
 - `cookie` low, installed 0.6.0: cookie accepts cookie name, path, and domain with out of bounds characters (https://github.com/advisories/GHSA-pxg6-pf52-xh8x). Below the configured high threshold; reported, not suppressed.
 
-- `http-proxy-middleware` high, installed 2.0.10: via micromatch. Fingerprint re-pinned on 2026-11-17 for the picomatch chain and accepted until 2026-12-10; see the 2026-11-17 re-check below.
 
-- `micromatch` high, installed 4.0.8: via picomatch (was via braces). Fingerprint re-pinned on 2026-11-17 and accepted until 2026-12-10; see the 2026-11-17 re-check below.
 
-- `picomatch` high, installed 2.3.2: ReDoS through single-branch repeated extglobs (https://github.com/advisories/GHSA-fc5q-39xc-vjpf), affected through 4.0.7, no patched release. Accepted until 2026-12-10; see the 2026-11-17 re-check below.
+- `picomatch` 2.3.2 (and the `http-proxy-middleware` 2.0.10 / `micromatch` 4.0.8 chain): GHSA-fc5q-39xc-vjpf was withdrawn by GitHub on 2026-11-18; production audit no longer reports it, so the four 2026-11-17 exceptions were removed (see the 2026-11-18 note below).
 
-- `hono` moderate, installed 4.13.14, and `@hono/node-server` moderate, installed 2.1.5 (via `@modelcontextprotocol/sdk`). Below the configured high threshold; reported, not suppressed; see the 2026-11-17 re-check below.
+- `hono` and `@hono/node-server` (via `@modelcontextprotocol/sdk`): moderate advisories fixed on 2026-11-18 by updating the lockfile to `hono` 4.13.19 and `@hono/node-server` 2.1.9; see the 2026-11-18 note below.
 
 - `braces`: the historical stack-exhaustion advisory (https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) was withdrawn on 2026-10-23 and production audit no longer reports it, so its exception was removed on 2026-11-17.
 
@@ -44,6 +42,14 @@ Change: the four exceptions now pin exactly the four current high fingerprints (
 
 Moderate advisories (below the high threshold; reported, not suppressed): `hono` <=4.13.15 (GHSA-4m76-xfj5-7975, GHSA-h7mg-cq63-vhpq, GHSA-3gg2-335m-rxc6, GHSA-46wx-v44x-9hh2, GHSA-4h7h-rv7c-7m2v) and `@hono/node-server` 2.0.0-2.1.5 (GHSA-qv5m-9pm6-hqp3, GHSA-jpvv-r467-5p4w), both through `@modelcontextprotocol/sdk`. The server uses only the SDK's `StreamableHTTPServerTransport`, which converts Node requests with `@hono/node-server`'s request listener; it builds no Hono app, router, `mount()`, `csrf()`, `validator()` or `css` helper and accepts no WebSocket upgrade. Its own Node handler checks the bearer token and the exact `/mcp`, `/` or `/health` path before the SDK sees a request. Patched releases (`hono` 4.13.19, `@hono/node-server` 2.1.9) fit the SDK's ranges and are left to the next versioned product release.
 
+
+### 2026-11-18 Lessons Fold: hono, vitest and Picomatch Withdrawal
+
+`hono` 4.13.14 to 4.13.19 and `@hono/node-server` 2.1.5 to 2.1.9 are updated in `package-lock.json` only, inside the SDK's existing ranges, so the moderate advisories listed on 2026-11-17 no longer apply. `package.json` production dependencies are unchanged.
+
+The dev-only test runner moves from `vitest` 2.1.9 to 5.1.1 (with `vite` 8.3.8, its peer), clearing the critical `tinypool`/`vitest` advisories (GHSA-5gmw-xhrv-c9v3, GHSA-5xrq-8626-4rwp) and the `vite`/`esbuild` advisories that only a full `npm audit` reported. Vite 8 needs Node 20.19+ or 22.12+ for development and CI; the published package still requires Node 22.5+ at runtime. Tests (52), typecheck and build pass unchanged.
+
+Picomatch re-check on 2026-11-18: no patched `picomatch` was published (4.0.7 is still latest, `alexa-cookie2` 5.0.6 and `alexa-remote2` 8.1.1 are still latest), but GitHub withdrew GHSA-fc5q-39xc-vjpf (`first_patched_version` null, `withdrawn_at` 2026-11-18T15:38:56Z), the same way braces was withdrawn on 2026-10-23, and production `npm audit` now reports only the three low findings. The four exceptions (`alexa-cookie2`, `http-proxy-middleware`, `micromatch`, `picomatch`, expiring 2026-12-10) were removed from `policy.json`, so the scan again accepts no audit findings by exception. Withdrawal is not a shipped fix; the reachability review from 2026-11-17 (loopback-only, login-time proxy with a hardcoded non-extglob context) still holds if the advisory is ever reinstated, and any reappearance blocks the gate again.
 
 ## Code Findings
 

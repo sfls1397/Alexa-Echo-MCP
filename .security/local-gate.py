@@ -147,6 +147,21 @@ def record(repo, sha, number, results, hashes):
     return passed
 
 
+HEAD_WAIT = 30  # seconds to let GitHub's PR head catch up with a fresh push (its API lagged git ls-remote, PR 18)
+
+
+def pr_at_head(number, local, wait=HEAD_WAIT, pause=3, view=None, sleep=time.sleep):
+    """The PR's data once GitHub's headRefOid matches the local commit, or the last answer after `wait` seconds."""
+    view = view or (lambda: gh(['pr', 'view', number, '--json', 'headRefOid,baseRefName,state,isDraft']))
+    pr = view()
+    waited = 0
+    while pr['headRefOid'] != local and waited < wait:
+        sleep(pause)
+        waited += pause
+        pr = view()
+    return pr
+
+
 def main():
     if len(sys.argv) != 2 or not re.fullmatch(r'[1-9][0-9]*|deploy', sys.argv[1]):
         raise GateError('Use local-gate.py PR_NUMBER (from the reviewed PR checkout) or local-gate.py deploy')
@@ -157,11 +172,13 @@ def main():
     number = None
     if sys.argv[1] != 'deploy':
         number = sys.argv[1]
-        pr = gh(['pr', 'view', number, '--json', 'headRefOid,baseRefName,state,isDraft'])
+        pr = pr_at_head(number, local)
         if pr['state'] != 'OPEN' or pr['isDraft'] or pr['baseRefName'] != 'main':
             raise GateError('PR must be open, ready, and target main')
         if local != pr['headRefOid']:
-            raise GateError('Check out the PR head first; the local commit is not the PR head')
+            raise GateError('Check out the PR head first; the local commit is not the PR head '
+                            '(GitHub still reported %s after %ss; its API can lag a fresh push, so re-run if you just pushed)'
+                            % (pr['headRefOid'][:12], HEAD_WAIT))
     with tempfile.TemporaryDirectory(prefix='local-gate-logs-') as logs:
         try:
             results, *hashes = run_gate(local, Path(logs), env)
