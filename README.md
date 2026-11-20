@@ -82,6 +82,8 @@ reject anything else. See `examples/config.json.example` for every setting
 `amazon.co.uk`, `locale` e.g. `en-GB`). `alexa-echo-mcp check-config` prints
 the settings it resolved.
 
+`ALEXA_ECHO_MCP_HOME` moves the whole settings folder and is for tests and development only.
+
 ### Run it as a LaunchAgent
 
 From a global install:
@@ -159,6 +161,8 @@ port-forward 8426. For access away from home, use a VPN such as Tailscale.
 | `Amazon session no longer works` | Amazon expired or revoked it. Run `login` again. |
 | Sign-in page shows "Sorry! Something went wrong!" | Use a normal desktop browser on the same Mac, at `127.0.0.1`, not another host name. |
 | Requests accepted but nothing happens | Check the Echo is online in the Alexa app. For routines, check the name matches exactly, including capitals. |
+| A device's state looks stale, or shows no state | Amazon's reported on/off can lag a real change by a minute or more, and reading a just-changed device can stall, so each device's state read is capped at 8 seconds and a device that does not answer is listed with its state unknown. Control still works. |
+| `launchctl bootstrap` failed with error 5 while installing the LaunchAgent | `bootout` returns before the old instance has gone. The installer waits for it; run it again if it timed out. |
 | Everything fails after it used to work | Amazon probably changed its private API. Update this package (and alexa-remote2) and sign in again. |
 
 ## License

@@ -78,32 +78,20 @@ Build step 4 (D19). Comments go stale, and agents copy them and lean on them; th
 
 **Docstrings count, unless the program reads them.** A docstring is prose for a reader and goes stale like a comment. A docstring the code reads is program text: the module docstring of a file that reads `__doc__` (`lint.py` prints it as usage) and a function or class docstring the same file reads as `name.__doc__`.
 
-## Comments in today's code
+## The comment cleanup (done)
 
-Measured on main at 295a95e with this check: 208 comment lines in 29 files (TypeScript and JavaScript 137, Python 57, shell 14). 24 of the Python lines are docstrings nothing reads, 47 of the TypeScript comments open a JSDoc block, and none cites a Peter instruction or a lesson ID, so no "why" has to be moved to a rule before it is deleted. The baseline holds all 208.
+Dev process step 4 (D19) cleaned every comment the baseline held, in one job on main at 2a7b8f9: 208 comment lines in 29 files before, 0 after (`python3 .security/lint.py counts`), and `.lint/baseline.json` holds no comment entry, only the 3 `tsc` entries that a later job fixes. None of the 208 comments cited a Peter instruction or a lesson ID, so no citation had to move; the reasons that were worth keeping moved as follows.
 
-| Folder | Files | Lines |
-|---|---|---|
-| `src/alexa` | 5 | 79 |
-| `src/mcp` | 4 | 36 |
-| `src` (top level) | 4 | 18 |
-| `.security` | 7 | 57 |
-| `.githooks`, `.cursor`, `examples`, `scripts`, `tests` | 9 | 18 |
-| **All** | **29** | **208** |
+Where each kind's "why" goes, as applied:
 
-The most: `src/alexa/client.ts` 26, `src/alexa/devices.ts` 19, `.security/local-gate.py` 17, `src/mcp/tools.ts` 15.
+- Narration, field descriptions and history (PR numbers, dates, who found it) were deleted.
+- A note about Alexa's behavior that the code depends on went into the name of the test that guards it. Three had no guard, so tests were added: `tests/login.test.ts` (the first alexa-cookie2 callback only says the proxy is up), the init callback test in `tests/client.test.ts` (alexa-remote2 repeats the callback after each cookie refresh) and the per device state timeout test (a just-changed device can stall Amazon's answer for a minute). Each was shown to fail with its guard removed.
+- Behavior a user can see went into `README.md`: stale device state, the installer's wait before `launchctl bootstrap` (error 5) and `ALEXA_ECHO_MCP_HOME`.
+- A docstring the program does not read was deleted; `local-gate.py` already prints its usage in its argument error.
 
-## The cleanup plan
+Proof of no behavior change: syntax trees are equal with comments dropped for every changed TypeScript, JavaScript, Python and shell file (TypeScript through `ts.createSourceFile` tokens, Python through `ast.dump` without string statements, shell through `shfmt -mn`), taken before and after the deleting commit, which changes nothing else. A planted one line change in a TypeScript, a Python and a shell file was reported as different. The reason moves are a separate commit that touches only tests and `README.md`.
 
-One job per part, on a mid tier model (Peter: it does not need a high model; about 8:45 PM CT Nov 15 2026), each after the one before merges. This PR does not clean any comment.
-
-| Part | Files | Lines | Why this order |
-|---|---|---|---|
-| 1 | `.githooks`, `.cursor`, `examples`, `scripts`, `tests` and `.security` | 75 | Small, mostly shell and gate code, so the method is proven cheaply and the gate's own files are kept apart from the product |
-| 2 | `src` top level and `src/mcp` | 54 | The server and its tools, where each JSDoc line describes a tool's behavior and must be checked against `tests/tools.test.ts` |
-| 3 | `src/alexa` | 79 | The Alexa client, devices and login, the most commented code, last so any reason that belongs in a test name is already there |
-
-Where each kind's "why" goes: narration goes nowhere (a better name for the function or constant, or a test, when the code is unclear without it); a note about Alexa's behavior that the code depends on goes in the name of the test that guards it, or in `README.md` when it is user facing; a docstring the program prints stays. Each part's job: list the part's comments with `python3 .security/lint.py comments`, move or drop each one, change no behavior (a rename is the only code change allowed), prove it with identical syntax trees before and after (TypeScript with `ts.createSourceFile` and comments ignored, Python with `ast.dump` minus docstring statements, shell with `shfmt -mn`), run `python3 .security/lint.py prune --resolved-only` so the baseline loses only resolved entries, and put the before and after comment counts in the PR.
+From here the ban holds: a new comment fails the gate and the commit hook, and the baseline only shrinks.
 
 ## Changing a pin or a rule
 

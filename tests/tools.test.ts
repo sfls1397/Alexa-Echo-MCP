@@ -52,7 +52,7 @@ describe("routines", () => {
 });
 
 describe("tools", () => {
-  it("lists all tools, with the real Echo names as the enum", async () => {
+  it("lists all tools, with the real Echo names as the enum and no device enum, since device names come from alexa_list_devices, which lists online devices only", async () => {
     const { backend } = fakeAlexa();
     const defs = await toolDefinitions({ alexa: backend, aliases: ALIASES });
     expect(defs.map((d) => d.name)).toEqual([TOOL_SPEAK, TOOL_LIST_ROUTINES, TOOL_RUN_ROUTINE, TOOL_TEXT_COMMAND, TOOL_LIST_DEVICES, TOOL_CONTROL_DEVICE]);
