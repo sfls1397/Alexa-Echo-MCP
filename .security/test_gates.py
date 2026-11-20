@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Negative enforcement probes, including partially staged changes and outages."""
+import contextlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -91,6 +93,31 @@ class Gates(unittest.TestCase):
         accepted = {'audit':[{'package':'probe-dep','sha256':key,'expires':'2099-01-01','reason':'probe','tracking':'probe'}]}
         with self.assertRaises(RuntimeError):
             gate.audit(self.root, accepted)
+
+    def audit_output(self, accepted):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            gate.audit(self.root, accepted)
+        return out.getvalue()
+
+    def test_stale_audit_exception_warns_without_blocking(self):
+        self.fake_npm({'vulnerabilities': {}}, 0)
+        stale = {'package': 'gone-dep', 'sha256': 'x', 'expires': '2099-01-01', 'reason': 'probe', 'tracking': 'probe'}
+        text = self.audit_output({'audit': [stale]})
+        self.assertIn('WARNING: stale audit exception', text)
+        self.assertIn('gone-dep', text)
+        self.assertIn('npm audit gate PASS', text)
+
+    def test_matching_audit_exception_does_not_warn(self):
+        finding = {'severity': 'high', 'nodes': ['node_modules/probe-dep'], 'via': []}
+        (self.root / 'package-lock.json').write_text(json.dumps({'packages': {'node_modules/probe-dep': {'version': '1.0.0'}}}))
+        lock = json.loads((self.root / 'package-lock.json').read_text())
+        key = gate.audit_key('probe-dep', finding, lock)
+        self.fake_npm({'vulnerabilities': {'probe-dep': finding}}, 1)
+        accepted = {'audit': [{'package': 'probe-dep', 'sha256': key, 'expires': '2099-01-01', 'reason': 'probe', 'tracking': 'probe'}]}
+        text = self.audit_output(accepted)
+        self.assertNotIn('WARNING', text)
+        self.assertIn('documented existing finding', text)
 
     def test_expired_policy_blocks(self):
         with self.assertRaises(RuntimeError):
