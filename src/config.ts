@@ -1,26 +1,13 @@
 import fs from "node:fs";
 import { DEFAULT_LOGIN_PORT, DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT, getConfigPath } from "./paths.js";
 
-/**
- * Everything specific to one household lives here, in
- * ~/.alexa-echo-mcp/config.json, never in the repo. The Amazon session itself
- * is in the Keychain (see alexa/session.ts), not in this file.
- */
 export interface ResolvedConfig {
   configPath: string;
   serverHost: string;
   serverPort: number;
-  /** Loopback port for the one-time Amazon sign-in page (`alexa-echo-mcp login`). */
   loginPort: number;
-  /** Amazon storefront the account belongs to, e.g. amazon.com, amazon.co.uk, amazon.de. */
   amazonPage: string;
-  /** Alexa locale for spoken text and text commands, e.g. en-US. */
   locale: string;
-  /**
-   * Optional aliases: the name callers use -> the device's name in the Alexa
-   * app (or its serial number). Use when your own names for the Echoes differ
-   * from the Alexa app's. Names not listed here must match the Alexa app.
-   */
   echoes: Record<string, string>;
 }
 

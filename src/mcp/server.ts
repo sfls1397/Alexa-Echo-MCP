@@ -49,12 +49,6 @@ export interface StartHttpOptions {
   log?: (message: string) => void;
 }
 
-/**
- * Stateless Streamable HTTP (a fresh Server + transport per request, as the
- * SDK's stateless example requires) with a bearer token on every request,
- * including /health. The Alexa connection itself is shared across requests.
- * Binds exactly `port`; clients are configured with that port.
- */
 export async function startHttpServer(opts: StartHttpOptions): Promise<http.Server> {
   const log = opts.log || ((message: string) => console.error(message));
   const httpServer = http.createServer((req, res) => {

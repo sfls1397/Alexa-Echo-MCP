@@ -1,19 +1,10 @@
-/**
- * Plain-language summaries of the user's Alexa routines (voice phrases,
- * triggers, steps) so the calling model can pick the routine that does what
- * the user asked, by meaning, when they don't use its exact name. No matching
- * logic lives here on purpose.
- */
 import type { Routine } from "./client.js";
 
 export interface RoutineSummary {
   name: string;
   enabled: boolean;
-  /** Phrases that trigger it by voice in the Alexa app. */
   voicePhrases: string[];
-  /** Non-voice triggers, e.g. "home mode: AWAY", "location". */
   otherTriggers: string[];
-  /** What it does, one line per step. */
   steps: string[];
 }
 
@@ -23,7 +14,6 @@ function asNode(v: unknown): Node | null {
   return v && typeof v === "object" && !Array.isArray(v) ? (v as Node) : null;
 }
 
-/** entityId -> device name, so routine steps can name the devices they touch. */
 export type DeviceNames = Map<string, string>;
 
 function describeSmartHome(payload: Node, names: DeviceNames): string {

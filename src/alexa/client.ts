@@ -1,11 +1,3 @@
-/**
- * Thin promise wrapper over alexa-remote2, which drives Amazon's private
- * Alexa web/app API with the account owner's own session. Amazon publishes no
- * API for this; if Amazon changes that API, these calls break until
- * alexa-remote2 catches up.
- *
- * alexa-remote2's `logger` option prints cookies and tokens, so it is never set.
- */
 import { createRequire } from "node:module";
 import type { ResolvedConfig } from "../config.js";
 import { getLoginDevicePath } from "../paths.js";
@@ -14,7 +6,6 @@ import { isRegistrationData, type RegistrationData, type SessionStore } from "./
 
 const require = createRequire(import.meta.url);
 
-/** Device families that are Echo speakers / Echo Shows (not phones, apps, groups, Fire TV). */
 export const ECHO_FAMILIES = new Set(["ECHO", "KNIGHT", "ROOK"]);
 
 export const NOT_SIGNED_IN =
@@ -26,7 +17,6 @@ const DEVICE_CACHE_MS = 60_000;
 const COOKIE_REFRESH_MS = 4 * 24 * 60 * 60 * 1000;
 
 export interface EchoDevice {
-  /** Name in the Alexa app. */
   name: string;
   serial: string;
   family: string;
@@ -39,23 +29,19 @@ export interface Routine {
   raw: Record<string, unknown>;
 }
 
-/** What the MCP tools need. The real one is AlexaService; tests use a fake. */
 export interface AlexaBackend {
   echoes(): Promise<EchoDevice[]>;
   speak(serial: string, text: string): Promise<void>;
   textCommand(serial: string, text: string): Promise<void>;
   routines(): Promise<Routine[]>;
   runRoutine(serial: string, routine: Routine): Promise<void>;
-  /** Enabled, controllable smart-home devices (not Echoes/speakers). */
   devices(): Promise<SmartDevice[]>;
-  /** Reported state by applianceId. Missing = no answer in time (unknown); online:false = Amazon says unreachable. */
   deviceStates(applianceIds: string[]): Promise<Map<string, DeviceState>>;
   controlDevice(applianceId: string, parameters: Record<string, unknown>): Promise<void>;
 }
 
 type Callback = (err: Error | null | undefined, res?: unknown) => void;
 
-/** The slice of alexa-remote2's AlexaRemote class used here. */
 interface AlexaRemoteLike {
   cookieData: unknown;
   serialNumbers: Record<string, Record<string, unknown>>;
@@ -77,7 +63,6 @@ export function newAlexaRemote(): AlexaRemoteLike {
   return new AlexaRemote();
 }
 
-/** Options shared by the long-running service and the one-time login. */
 export function baseAlexaOptions(config: ResolvedConfig): Record<string, unknown> {
   return {
     amazonPage: config.amazonPage,
@@ -106,7 +91,6 @@ export function toEchoDevices(serialNumbers: Record<string, Record<string, unkno
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Point the routine's "current locale" placeholders at our locale; alexa-remote2 would otherwise default them to de-DE. */
 export function localizeRoutine(raw: Record<string, unknown>, locale: string): Record<string, unknown> {
   const json = JSON.stringify(raw).replace(/"locale":"ALEXA_CURRENT_LOCALE"/g, `"locale":${JSON.stringify(locale)}`);
   return JSON.parse(json) as Record<string, unknown>;
@@ -135,7 +119,6 @@ export class AlexaService implements AlexaBackend {
     private readonly log: (m: string) => void = (m) => console.error(m)
   ) {}
 
-  /** Connect lazily, so `login` can happen while the server is already running. */
   private connect(): Promise<AlexaRemoteLike> {
     if (this.ready) return this.ready;
     const attempt = this.startRemote();
@@ -150,7 +133,6 @@ export class AlexaService implements AlexaBackend {
     const session = this.store.load();
     if (!session) return Promise.reject(new Error(NOT_SIGNED_IN));
     const remote = this.factory();
-    // Never fall back to the interactive sign-in proxy from the server.
     remote.generateCookie = (_email, _password, callback) => callback(new Error(NOT_SIGNED_IN));
     remote.on("cookie", () => this.persist(remote));
 
@@ -161,9 +143,7 @@ export class AlexaService implements AlexaBackend {
         settled = true;
         try {
           remote.stop();
-        } catch {
-          /* ignore */
-        }
+        } catch {}
         reject(new Error("Timed out connecting to Amazon's Alexa service."));
       }, INIT_TIMEOUT_MS);
       remote.init(
@@ -175,16 +155,13 @@ export class AlexaService implements AlexaBackend {
           cookieRefreshInterval: COOKIE_REFRESH_MS
         },
         (err?: Error) => {
-          // init calls back again after each scheduled cookie refresh; only the first one settles.
           if (settled) return;
           settled = true;
           clearTimeout(timer);
           if (err) {
             try {
               remote.stop();
-            } catch {
-              /* ignore */
-            }
+            } catch {}
             const message = err.message.includes(NOT_SIGNED_IN)
               ? `Amazon session no longer works. ${NOT_SIGNED_IN}`
               : `Could not connect to Amazon's Alexa service: ${err.message}`;
@@ -210,14 +187,11 @@ export class AlexaService implements AlexaBackend {
     }
   }
 
-  /** Drop the connection so the next call reconnects (and refreshes the session). */
   reset(): void {
     if (this.remote) {
       try {
         this.remote.stop();
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
     this.remote = null;
     this.ready = null;
@@ -269,7 +243,6 @@ export class AlexaService implements AlexaBackend {
     });
   }
 
-  /** Cached for a minute: names and controls rarely change, and each lookup is a slow Amazon call. */
   async devices(): Promise<SmartDevice[]> {
     if (this.deviceCache && Date.now() - this.deviceCache.at < DEVICE_CACHE_MS) return this.deviceCache.devices;
     return this.withRemote(async (remote) => {
@@ -284,8 +257,6 @@ export class AlexaService implements AlexaBackend {
   async deviceStates(applianceIds: string[]): Promise<Map<string, DeviceState>> {
     if (!applianceIds.length) return new Map();
     return this.withRemote(async (remote) => {
-      // One request per device with a short cap: a device that just changed can stall Amazon's
-      // answer for a minute, and it shouldn't hold up (or hide) the others.
       const results = await Promise.all(
         applianceIds.map((id) =>
           Promise.race([

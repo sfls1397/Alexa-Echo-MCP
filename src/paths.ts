@@ -3,7 +3,6 @@ import path from "node:path";
 
 export const APP_DIR_NAME = ".alexa-echo-mcp";
 export const CONFIG_FILE_NAME = "config.json";
-/** Login-proxy device identity (deviceId, frc, map-md) kept between sign-ins. Not a credential. */
 export const LOGIN_DEVICE_FILE_NAME = "login-device.json";
 
 export const DEFAULT_SERVER_HOST = "0.0.0.0";
@@ -15,7 +14,6 @@ export interface PathOptions {
   homedir?: () => string;
 }
 
-/** `ALEXA_ECHO_MCP_HOME` is a test/dev override only. */
 export function getAppDir(options: PathOptions = {}): string {
   const env = options.env || process.env;
   if (env.ALEXA_ECHO_MCP_HOME && env.ALEXA_ECHO_MCP_HOME.trim()) {

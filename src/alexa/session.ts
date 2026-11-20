@@ -1,11 +1,3 @@
-/**
- * The Amazon session (alexa-cookie2 "registration data": refresh token,
- * cookies, device id) lives only in the macOS Keychain. Never in config, the
- * repo, logs, or tool output.
- *
- * Session bytes are written through stdin with the security utility, never
- * command arguments or logs. Existing Keychain item permissions are retained.
- */
 import { execFileSync as defaultExecFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { writeKeychainSecret } from "../keychainWrite.js";
@@ -15,7 +7,6 @@ export const SESSION_KEYCHAIN_ACCOUNT = "amazon-session";
 
 type Exec = typeof defaultExecFileSync;
 
-/** Shape kept opaque on purpose; alexa-remote2 owns it. `localCookie` marks a complete sign-in. */
 export type RegistrationData = Record<string, unknown> & { localCookie?: string };
 
 export function isRegistrationData(value: unknown): value is RegistrationData {
@@ -33,8 +24,6 @@ export interface SessionStore {
   clear(): boolean;
 }
 
-// The utility's stdin command buffer is 4096 bytes. Write immutable chunks,
-// then switch the root item only after every chunk succeeds.
 const CHUNK_SIZE = 1800;
 const MAX_CHUNKS = 600;
 function manifest(value: string) {
@@ -75,7 +64,7 @@ export function keychainSessionStore(exec: Exec = defaultExecFileSync): SessionS
       const count = Math.ceil(encoded.length / CHUNK_SIZE);
       if (!count || count > MAX_CHUNKS) throw new Error("Session too large for Keychain storage; credential values omitted.");
       let previous = "";
-      try { previous = read(SESSION_KEYCHAIN_ACCOUNT); } catch { /* first sign-in */ }
+      try { previous = read(SESSION_KEYCHAIN_ACCOUNT); } catch {}
       const generation = randomUUID().replace(/-/g, "");
       let written = 0;
       try {
@@ -93,7 +82,7 @@ export function keychainSessionStore(exec: Exec = defaultExecFileSync): SessionS
     },
     clear() {
       let previous = "";
-      try { previous = read(SESSION_KEYCHAIN_ACCOUNT); } catch { /* already absent */ }
+      try { previous = read(SESSION_KEYCHAIN_ACCOUNT); } catch {}
       const removed = remove(SESSION_KEYCHAIN_ACCOUNT);
       if (removed) clean(previous);
       return removed;

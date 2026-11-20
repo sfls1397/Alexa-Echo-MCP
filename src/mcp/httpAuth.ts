@@ -1,13 +1,3 @@
-/**
- * Shared-secret auth for the HTTP transport, same scheme as Network-Tools
- * (and Apple Tools): a random bearer token generated once and kept in the
- * macOS Keychain — never in a config file, the repo, or logs after the
- * one-time print.
- *
- * The token is read from ALEXA_ECHO_MCP_TOKEN first (set and non empty),
- * so the server can start through infisical-run, which injects it into the
- * environment; the Keychain item is the fallback, read exactly as before.
- */
 import crypto from "node:crypto";
 import { writeKeychainSecret } from "../keychainWrite.js";
 import { execFileSync as defaultExecFileSync } from "node:child_process";
@@ -55,7 +45,6 @@ export function loadOrCreateHttpAuthToken(
   return { token, generated: true };
 }
 
-/** Constant-time check of `Authorization: Bearer <token>`. Never throws. */
 export function verifyAuthHeader(headerValue: string | string[] | undefined, expectedToken: string): boolean {
   if (typeof headerValue !== "string") return false;
   const match = /^Bearer\s+(.+)$/i.exec(headerValue.trim());

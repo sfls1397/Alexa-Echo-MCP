@@ -1,8 +1,4 @@
 #!/bin/sh
-# Install or refresh the Alexa Echo MCP LaunchAgent for the current user:
-#   com.alexa-echo-mcp.server   bearer-token HTTP MCP (KeepAlive, :8426 by default)
-# Usage: sh examples/install-launchagent.sh [/absolute/path/to/node]
-# Secrets stay in the Keychain; this script never reads or prints them.
 set -eu
 DIR=$(CDPATH='' cd -- "$(dirname "$0")" && pwd)
 REPO=$(CDPATH='' cd -- "$DIR/.." && pwd)
@@ -16,7 +12,6 @@ sed -e "s#REPLACE_NODE#$NODE#g" -e "s#REPLACE_REPO#$REPO#g" -e "s#REPLACE_HOME#$
 plutil -lint "$plist.tmp" >/dev/null
 mv "$plist.tmp" "$plist"
 launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-# bootout returns before the old instance is gone; bootstrap then fails with error 5.
 i=0
 while launchctl print "gui/$(id -u)/$LABEL" >/dev/null 2>&1 && [ $i -lt 20 ]; do sleep 0.5; i=$((i + 1)); done
 launchctl bootstrap "gui/$(id -u)" "$plist"
