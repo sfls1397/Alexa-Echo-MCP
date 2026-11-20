@@ -89,7 +89,7 @@ Where each kind's "why" goes, as applied:
 - Behavior a user can see went into `README.md`: stale device state, the installer's wait before `launchctl bootstrap` (error 5) and `ALEXA_ECHO_MCP_HOME`.
 - A docstring the program does not read was deleted; `local-gate.py` already prints its usage in its argument error.
 
-Proof of no behavior change: syntax trees are equal with comments dropped for every changed TypeScript, JavaScript, Python and shell file (TypeScript through `ts.createSourceFile` tokens, Python through `ast.dump` without string statements, shell through `shfmt -mn`), taken before and after the deleting commit, which changes nothing else. A planted one line change in a TypeScript, a Python and a shell file was reported as different. The reason moves are a separate commit that touches only tests and `README.md`.
+Proof of no behavior change: syntax trees are equal with comments dropped for every changed TypeScript, JavaScript, Python and shell file (TypeScript through `ts.createSourceFile` tokens, Python through `ast.dump` without string statements, shell through `shfmt -mn`), taken before and after the deleting commit, which changes nothing else. A planted one line change in a TypeScript, a Python and a shell file was reported as different. The reason moves are a separate commit that touches only tests, `README.md` and this doc.
 
 From here the ban holds: a new comment fails the gate and the commit hook, and the baseline only shrinks.
 
