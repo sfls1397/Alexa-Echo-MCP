@@ -44,18 +44,26 @@ for (const file of files) {
     continue;
   }
   const seen = new Set();
+  const markup = [];
+  const local = [];
   const add = (range) => {
     if (seen.has(range.pos)) return;
     seen.add(range.pos);
     const start = sourceFile.getLineAndCharacterOfPosition(range.pos);
     const end = sourceFile.getLineAndCharacterOfPosition(range.end);
-    comments.push({ file, value: text.slice(range.pos, range.end), line: start.line + 1, column: start.character, endLine: end.line + 1, endColumn: end.character });
+    local.push({ offset: range.pos, file, value: text.slice(range.pos, range.end), line: start.line + 1, column: start.character, endLine: end.line + 1, endColumn: end.character });
   };
   tokens(sourceFile, sourceFile, (token) => {
-    if (token.kind === ts.SyntaxKind.JsxText) return;
+    if (token.kind === ts.SyntaxKind.JsxText) {
+      markup.push([token.pos, token.end]);
+      return;
+    }
     for (const range of ts.getLeadingCommentRanges(text, token.pos) ?? []) add(range);
     for (const range of ts.getTrailingCommentRanges(text, token.end) ?? []) add(range);
   });
+  for (const { offset, ...comment } of local) {
+    if (!markup.some(([from, to]) => offset >= from && offset < to)) comments.push(comment);
+  }
   const found = [];
   specifiers(sourceFile, found);
   for (const { specifier, node } of found) {
