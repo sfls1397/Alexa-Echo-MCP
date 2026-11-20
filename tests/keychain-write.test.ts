@@ -1,6 +1,6 @@
 import { it, expect, vi } from 'vitest';
 import { writeKeychainSecret } from '../src/keychainWrite.js';
-it('uses one stdin command, rejects truncation/injection and sanitizes errors', () => {
+it('uses one stdin command so credential bytes never enter argv, rejects values over the security utility\'s 4096 byte stdin buffer and injection, and sanitizes errors', () => {
   const value = 'TEST_CREDENTIAL_' + 'Z'.repeat(1800);
   const exec = vi.fn(() => Buffer.from(''));
   writeKeychainSecret('fixture-service', 'fixture-account', value, exec as any);

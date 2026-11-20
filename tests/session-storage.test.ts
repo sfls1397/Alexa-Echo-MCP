@@ -38,7 +38,7 @@ it('reads legacy sessions and round-trips large sessions with cleanup', () => {
   expect(f.store.clear()).toBe(true);
   expect(f.items.size).toBe(0);
 });
-it('keeps the prior session intact and removes partial chunks on write failure', () => {
+it('keeps the prior session intact (the root item switches only after every chunk is written) and removes partial chunks on write failure', () => {
   const f = fixture();
   const previous = { localCookie: 'TEST_ONLY', refreshToken: 'TEST_REFRESH' };
   f.store.save(previous);

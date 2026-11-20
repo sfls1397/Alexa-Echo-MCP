@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { AlexaService, localizeRoutine, NOT_SIGNED_IN, toEchoDevices } from "../src/alexa/client.js";
 import { isRegistrationData, keychainSessionStore, type SessionStore } from "../src/alexa/session.js";
 import { resolveConfig } from "../src/config.js";
@@ -42,7 +42,7 @@ describe("toEchoDevices", () => {
 });
 
 describe("localizeRoutine", () => {
-  it("replaces only the current-locale placeholder", () => {
+  it("points only the current-locale placeholder at our locale, which alexa-remote2 would otherwise default to de-DE", () => {
     const out = localizeRoutine({ sequence: { a: { locale: "ALEXA_CURRENT_LOCALE" }, b: { locale: "fr-FR" } } }, "en-US");
     expect(out).toEqual({ sequence: { a: { locale: "en-US" }, b: { locale: "fr-FR" } } });
   });
@@ -59,7 +59,7 @@ describe("AlexaService", () => {
     expect(created).toBe(0);
   });
 
-  it("never opens the sign-in proxy from the server and saves refreshed sessions", async () => {
+  it("never opens the sign-in proxy from the server, never sets alexa-remote2's logger (it prints cookies and tokens), and saves refreshed sessions", async () => {
     const store = memoryStore(SESSION);
     let generateResult: unknown;
     const fake = {
@@ -91,6 +91,58 @@ describe("AlexaService", () => {
     expect(String(generateResult)).toContain("Not signed in");
     expect(store.saved.length).toBeGreaterThan(0);
     expect((store.saved.at(-1) as { refreshToken: string }).refreshToken).toBe("r2");
+  });
+
+  it("ignores init callbacks after the first, which alexa-remote2 repeats after every scheduled cookie refresh", async () => {
+    let stopped = 0;
+    const fake = {
+      cookieData: SESSION as unknown,
+      serialNumbers: { s: { serialNumber: "s", accountName: "Den Echo", deviceFamily: "ECHO", online: true } },
+      on: () => undefined,
+      generateCookie: () => undefined,
+      init: (_o: unknown, cb: (err?: Error) => void) => {
+        cb();
+        cb(new Error("refresh failed"));
+      },
+      createSequenceNode: () => null,
+      sendSequenceCommand: () => undefined,
+      getAutomationRoutines: () => undefined,
+      stop: () => {
+        stopped++;
+      }
+    };
+    const svc = new AlexaService(config, memoryStore(SESSION), () => fake as never, () => {});
+    expect((await svc.echoes()).map((e) => e.name)).toEqual(["Den Echo"]);
+    expect(stopped).toBe(0);
+  });
+
+  it("answers with the other devices' states when one device's state read never comes back, since a just-changed device can stall Amazon's answer for a minute", async () => {
+    vi.useFakeTimers();
+    try {
+      const fake = {
+        cookieData: SESSION as unknown,
+        serialNumbers: {},
+        on: () => undefined,
+        generateCookie: () => undefined,
+        init: (_o: unknown, cb: (err?: Error) => void) => cb(),
+        createSequenceNode: () => null,
+        sendSequenceCommand: () => undefined,
+        getAutomationRoutines: () => undefined,
+        stop: () => undefined,
+        querySmarthomeDevices: (ids: string[], _kind: string, cb: (err: null, res: unknown) => void) => {
+          if (ids[0] === "stalled") return;
+          cb(null, { deviceStates: [{ entity: { entityId: ids[0] }, capabilityStates: [JSON.stringify({ namespace: "Alexa.PowerController", name: "powerState", value: "ON" })] }] });
+        }
+      };
+      const svc = new AlexaService(config, memoryStore(SESSION), () => fake as never, () => {});
+      const pending = svc.deviceStates(["fast", "stalled"]);
+      await vi.advanceTimersByTimeAsync(8_000);
+      const states = await pending;
+      expect(states.get("fast")).toEqual({ online: true, power: "on" });
+      expect(states.has("stalled")).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("forces the configured locale onto speak requests", async () => {

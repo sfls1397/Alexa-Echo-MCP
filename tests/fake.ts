@@ -1,7 +1,6 @@
 import type { AlexaBackend, EchoDevice, Routine } from "../src/alexa/client.js";
 import type { DeviceState, SmartDevice } from "../src/alexa/devices.js";
 
-// Placeholder devices only; real names live in the user's local config / Alexa account.
 export const ECHOES: EchoDevice[] = [
   { name: "Den Echo", serial: "SERIAL-A", family: "ECHO", online: true },
   { name: "Porch Echo", serial: "SERIAL-B", family: "KNIGHT", online: true }
@@ -31,7 +30,6 @@ export function fakeAlexa(routines: Routine[] = []) {
     runRoutine: async (serial, routine) => void calls.push(`routine ${serial} ${routine.name}`),
     devices: async () => DEVICES,
     deviceStates: async (ids) => new Map(ids.filter((id) => states.has(id)).map((id) => [id, { ...(states.get(id) as DeviceState) }])),
-    // APP-4 (Fan) never answers a state read in time: no entry = unknown.
     controlDevice: async (id, params) => {
       if (states.get(id)?.online === false) throw new Error("The device is not reachable (offline).");
       calls.push(`control ${id} ${JSON.stringify(params)}`);

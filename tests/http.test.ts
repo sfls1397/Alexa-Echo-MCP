@@ -10,7 +10,7 @@ function closeServer(server: http.Server): Promise<void> {
 }
 
 describe("HTTP server", () => {
-  it("requires the bearer token and serves the three tools over MCP", async () => {
+  it("requires the bearer token on every request, health check included, and serves the tools over MCP", async () => {
     const { backend, calls } = fakeAlexa();
     const server = await startHttpServer({
       ctx: { alexa: backend, aliases: { "Echo - Den": "Den Echo" } },

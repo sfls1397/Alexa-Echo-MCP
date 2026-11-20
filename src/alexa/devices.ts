@@ -1,28 +1,14 @@
-/**
- * Smart-home devices on the Alexa account (lights, plugs, ...): what each one
- * is, what it can do, and its live state. Echo / speaker devices are left out;
- * they're driven by the speak and text-command tools instead.
- */
-
 export type DeviceControl = "power" | "brightness";
 
 export interface SmartDevice {
   name: string;
-  /** Used for state queries and control requests. */
   applianceId: string;
-  /** Used by routine steps to refer to the device. */
   entityId: string;
-  /** Plain words, e.g. "light", "smart plug", "tv". */
   type: string;
   controls: DeviceControl[];
-  /** Amazon's device list says the device is reachable. */
   reachable: boolean;
 }
 
-/**
- * What Amazon reports. Reported on/off can lag a real change by a minute or
- * more, and reads of a just-changed device can stall, so treat it as a hint.
- */
 export interface DeviceState {
   online: boolean;
   power?: "on" | "off";
@@ -38,7 +24,6 @@ const INTERFACE_CONTROLS: Record<string, DeviceControl> = {
   "Alexa.BrightnessController": "brightness"
 };
 
-/** Parse alexa-remote2 getSmarthomeDevicesV2 items into controllable, enabled, non-speaker devices. */
 export function toSmartDevices(items: unknown[]): SmartDevice[] {
   const out: SmartDevice[] = [];
   for (const raw of items || []) {
@@ -68,10 +53,6 @@ export function toSmartDevices(items: unknown[]): SmartDevice[] {
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/**
- * Parse a /api/phoenix/state response into applianceId -> state. Devices with
- * errors are offline; devices missing from the answer get no entry (unknown).
- */
 export function parseDeviceStates(response: unknown): Map<string, DeviceState> {
   const states = new Map<string, DeviceState>();
   const res = obj(response);
@@ -103,7 +84,6 @@ export function parseDeviceStates(response: unknown): Map<string, DeviceState> {
   return states;
 }
 
-/** Throw if a /api/phoenix/state PUT reported errors for any device. */
 export function checkControlResponse(response: unknown): void {
   const errors = obj(response).errors;
   if (Array.isArray(errors) && errors.length) {

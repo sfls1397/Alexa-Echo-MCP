@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Repository gates. Findings are summarized without source or secret values."""
 import importlib.util
 import datetime
 import hashlib
@@ -26,7 +25,6 @@ def git(args):
 
 
 def audit_key(name, item, lock):
-    # Pin every affected installed version and advisory chain, not just its name.
     value = {'package': name, 'severity': item['severity'],
              'range': item.get('range'), 'via': item.get('via', []),
              'installed': {p: lock.get('packages', {}).get(p, {}).get('version')
@@ -59,9 +57,6 @@ def exceptions(policy, kind):
 
 
 def warn_stale(kind, unused):
-    # A pinned exception that matches no current finding is dead weight: the
-    # advisory was withdrawn, fixed or its chain changed. Warn (never fail) so
-    # the pin gets removed; the entry still expires on its own date.
     for label in unused:
         print('WARNING: stale %s exception matches no current finding: %s; remove it from '
               '.security/policy.json and .security/FINDINGS.md' % (kind, label))
@@ -117,7 +112,6 @@ def semgrep(root, policy, targets=None):
     args = ['semgrep', 'scan', '--config', '.security/semgrep.yml', '--error',
             '--strict', '--metrics', 'off', '--disable-version-check', '--disable-nosem',
             '--max-target-bytes', '0', '--timeout', '0', '--json']
-    # Explicit staged targets avoid scanning an unstaged worktree or unrelated files.
     if targets is not None and not targets:
         print('Semgrep: no staged source files')
         return
@@ -137,7 +131,7 @@ def semgrep(root, policy, targets=None):
               'documented existing finding; see .security/FINDINGS.md' if known else 'BLOCKED'))
         if not known:
             blocked += 1
-    if targets is None:  # a staged subset cannot show that a pin is unused
+    if targets is None:
         warn_stale('semgrep', ['%s %s' % (x.get('file'), x.get('rule'))
                                for i, x in enumerate(accepted) if i not in used])
     if blocked:
@@ -150,9 +144,6 @@ def policy(root):
 
 
 def normalize_parser(root):
-    # Semgrep 1.180.0 misparses this valid TS regex as an HTML comment.
-    # Rewrite only its spelling in the disposable scan copy, with identical
-    # pattern and flags. Runtime/index bytes are never modified.
     p = root / 'src/core/sonos.ts'
     if p.exists():
         text = p.read_text()
@@ -195,7 +186,6 @@ def staged():
                                          '--diff-filter=ACMR', '-z']).split(b'\0') if p]
     with tempfile.TemporaryDirectory(prefix='repo-security-') as directory:
         snapshot = Path(directory)
-        # Use the index for tools, configuration, package metadata and candidate source.
         required = ['.semgrepignore', 'package.json', 'package-lock.json']
         lint_manifests = ['.lint/package.json', '.lint/package-lock.json']
         if any(git(['ls-files', '--', name]).strip() for name in lint_manifests):
@@ -222,7 +212,6 @@ def staged():
             audit(snapshot, reviewed)
         if any(x in changed for x in lint_manifests):
             audit_lint(snapshot)
-        # Include tests and scripts; only generated/vendor paths are ignored.
         targets = [x for x in changed if (snapshot / x).is_file()
                    and Path(x).suffix in ('.js', '.cjs', '.mjs', '.jsx', '.ts', '.tsx', '.py')]
         normalize_parser(snapshot)
@@ -245,7 +234,6 @@ if __name__ == '__main__':
     try:
         main()
     except (RuntimeError, OSError, ValueError, KeyError, IndexError):
-        # Do not echo arbitrary tool errors, source snippets, private paths or config.
         print('Security gate BLOCKED: finding, expired policy, missing tool, or incomplete scan. '
               'Review masked findings above and .security/FINDINGS.md; rerun after repair.', file=sys.stderr)
         sys.exit(1)

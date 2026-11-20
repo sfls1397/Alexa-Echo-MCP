@@ -19,7 +19,6 @@ const COMMAND_MAX = 250;
 
 export interface ToolContext {
   alexa: AlexaBackend;
-  /** Optional aliases from config: caller's name -> Alexa app name or serial. */
   aliases: Record<string, string>;
 }
 
@@ -29,11 +28,6 @@ export interface ToolDefinition {
   inputSchema: Record<string, unknown>;
 }
 
-/**
- * The names offered to callers: every alias, plus the Alexa app name of any
- * Echo no alias points at. (resolveEcho still accepts an aliased Echo's
- * Alexa app name.)
- */
 export function echoNames(echoes: EchoDevice[], aliases: Record<string, string>): string[] {
   const names = new Set<string>(Object.keys(aliases));
   const targets = new Set(Object.values(aliases).map((t) => t.toLowerCase()));
@@ -43,10 +37,6 @@ export function echoNames(echoes: EchoDevice[], aliases: Record<string, string>)
   return [...names].sort((a, b) => a.localeCompare(b));
 }
 
-/**
- * Resolve a caller's Echo name. Only names that already exist are accepted:
- * a configured alias, or an Echo's exact name in the Alexa app (case-insensitive).
- */
 export function resolveEcho(name: string, echoes: EchoDevice[], aliases: Record<string, string>): EchoDevice {
   const wanted = name.trim();
   const lower = wanted.toLowerCase();
@@ -103,9 +93,7 @@ function echoProperty(names: string[]): Record<string, unknown> {
   return prop;
 }
 
-/** Tool list. When signed in, the `echo` argument lists the real Echo names. */
 export async function toolDefinitions(ctx: ToolContext): Promise<ToolDefinition[]> {
-  // No enum here: names come from alexa_list_devices, which only lists online devices.
   const deviceProp: Record<string, unknown> = {
     type: "string",
     description: `The device's exact name from ${TOOL_LIST_DEVICES} (online devices only). Do not make up names.`
@@ -197,7 +185,6 @@ function requireString(args: Record<string, unknown>, key: string, max?: number)
   return s;
 }
 
-/** Strip a leading wake word so "Alexa, turn off the light" works too. */
 export function stripWakeWord(command: string): string {
   return command.replace(/^\s*(alexa|echo|computer|amazon|ziggy)\s*[,.!:]?\s+/i, "").trim();
 }
@@ -232,7 +219,6 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
       return JSON.stringify({ ok: true, echo: echoName, alexaName: echo.name, command, note: NO_REPLY });
     }
     case TOOL_LIST_ROUTINES: {
-      // Disabled routines are left out: they aren't offered and can't be run.
       const names = await deviceNames(ctx);
       const routines = (await ctx.alexa.routines())
         .filter((r) => r.enabled)
@@ -245,7 +231,6 @@ export async function callTool(ctx: ToolContext, name: string, args: Record<stri
       const devices = (await ctx.alexa.devices()).filter((d) => d.reachable);
       const states = await ctx.alexa.deviceStates(devices.map((d) => d.applianceId));
       const online = devices
-        // Left out only when Amazon says it's unreachable; no answer in time = online, state unknown.
         .filter((d) => states.get(d.applianceId)?.online !== false)
         .map((d) => {
           const st = states.get(d.applianceId);

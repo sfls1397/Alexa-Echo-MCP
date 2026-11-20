@@ -32,7 +32,7 @@ describe("toSmartDevices", () => {
 });
 
 describe("parseDeviceStates", () => {
-  it("reads power, brightness, connectivity, and marks errors offline", () => {
+  it("reads power, brightness, connectivity, marks errors offline and gives devices missing from the answer no entry (unknown)", () => {
     const states = parseDeviceStates({
       deviceStates: [
         {
@@ -50,6 +50,7 @@ describe("parseDeviceStates", () => {
     expect(states.get("A")).toEqual({ online: true, power: "on", brightness: 30 });
     expect(states.get("B")).toEqual({ online: false });
     expect(states.get("C")).toEqual({ online: false });
+    expect(states.has("D")).toBe(false);
   });
 });
 
