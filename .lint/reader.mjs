@@ -52,6 +52,7 @@ for (const file of files) {
     comments.push({ file, value: text.slice(range.pos, range.end), line: start.line + 1, column: start.character, endLine: end.line + 1, endColumn: end.character });
   };
   tokens(sourceFile, sourceFile, (token) => {
+    if (token.kind === ts.SyntaxKind.JsxText) return;
     for (const range of ts.getLeadingCommentRanges(text, token.pos) ?? []) add(range);
     for (const range of ts.getTrailingCommentRanges(text, token.end) ?? []) add(range);
   });
