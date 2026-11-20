@@ -58,6 +58,15 @@ def exceptions(policy, kind):
     return accepted
 
 
+def warn_stale(kind, unused):
+    # A pinned exception that matches no current finding is dead weight: the
+    # advisory was withdrawn, fixed or its chain changed. Warn (never fail) so
+    # the pin gets removed; the entry still expires on its own date.
+    for label in unused:
+        print('WARNING: stale %s exception matches no current finding: %s; remove it from '
+              '.security/policy.json and .security/FINDINGS.md' % (kind, label))
+
+
 def audit(root, policy):
     result = command(['npm', 'audit', '--omit=dev', '--audit-level=high', '--json'], root)
     data = json.loads(result.stdout)
@@ -66,15 +75,18 @@ def audit(root, policy):
     lock = json.loads((root / 'package-lock.json').read_text())
     accepted = exceptions(policy, 'audit')
     blocked = 0
+    used = set()
     for name, item in data['vulnerabilities'].items():
         if item['severity'] not in ('high', 'critical'):
             continue
         key = audit_key(name, item, lock)
         known = any(x['package'] == name and x['sha256'] == key for x in accepted)
+        used.update((name, key) for x in accepted if x['package'] == name and x['sha256'] == key)
         print('npm audit: %s %s (%s)' % (name, item['severity'],
               'documented existing finding; see .security/FINDINGS.md' if known else 'BLOCKED'))
         if not known:
             blocked += 1
+    warn_stale('audit', [x['package'] for x in accepted if (x['package'], x['sha256']) not in used])
     if blocked:
         raise RuntimeError('New or changed high/critical dependency findings block this gate')
     print('npm audit gate PASS (production dependencies; high threshold)')
@@ -97,13 +109,18 @@ def semgrep(root, policy, targets=None):
         raise RuntimeError('Semgrep could not complete cleanly; no partial scan is accepted')
     accepted = exceptions(policy, 'semgrep')
     blocked = 0
+    used = []
     for finding in data.get('results', []):
         key = code_key(finding, root)
         known = any(all(x.get(k) == v for k, v in key.items()) for x in accepted)
+        used += [i for i, x in enumerate(accepted) if all(x.get(k) == v for k, v in key.items())]
         print('Semgrep: %s:%s %s (%s)' % (key['file'], finding['start']['line'], key['rule'],
               'documented existing finding; see .security/FINDINGS.md' if known else 'BLOCKED'))
         if not known:
             blocked += 1
+    if targets is None:  # a staged subset cannot show that a pin is unused
+        warn_stale('semgrep', ['%s %s' % (x.get('file'), x.get('rule'))
+                               for i, x in enumerate(accepted) if i not in used])
     if blocked:
         raise RuntimeError('New or changed code findings block this gate')
     print('Semgrep gate PASS (offline local rules; metrics disabled)')
