@@ -81,7 +81,8 @@ def audit(root, policy):
               'documented existing finding; see .security/FINDINGS.md' if known else 'BLOCKED'))
         if not known:
             blocked += 1
-    warn_stale('audit', [x['package'] for x in accepted if (x['package'], x['sha256']) not in used])
+    warn_stale('audit', ['%s (pin %s)' % (x['package'], x['sha256'][:12]) for x in accepted
+                        if (x['package'], x['sha256']) not in used])
     if blocked:
         raise RuntimeError('New or changed high/critical dependency findings block this gate')
     print('npm audit gate PASS (production dependencies; high threshold)')
@@ -119,6 +120,10 @@ def semgrep(root, policy, targets=None):
     result = command(args, root)
     data = json.loads(result.stdout)
     if result.returncode not in (0, 1) or data.get('errors'):
+        for error in data.get('errors', []):
+            span = (error.get('spans') or [{}])[0]
+            print('Semgrep error: %s %s:%s' % (error.get('type'), error.get('path'),
+                                               (span.get('start') or {}).get('line')))
         raise RuntimeError('Semgrep could not complete cleanly; no partial scan is accepted')
     accepted = exceptions(policy, 'semgrep')
     blocked = 0
