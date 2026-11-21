@@ -114,6 +114,58 @@ class Gates(unittest.TestCase):
         self.assertNotIn('WARNING', text)
         self.assertIn('documented existing finding', text)
 
+    def fake_semgrep(self, value, status):
+        d = self.root / 'fake-bin'
+        d.mkdir(exist_ok=True)
+        p = d / 'semgrep'
+        p.write_text('#!/bin/sh\ncat <<\'JSON\'\n' + json.dumps(value) + '\nJSON\nexit ' + str(status) + '\n')
+        p.chmod(0o755)
+        old = os.environ['PATH']
+        os.environ['PATH'] = str(d) + os.pathsep + old
+        self.addCleanup(os.environ.__setitem__, 'PATH', old)
+
+    def semgrep_output(self, accepted, targets):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            gate.semgrep(self.root, accepted, targets)
+        return out.getvalue()
+
+    def stale_semgrep_policy(self):
+        stale = {'file': 'gone.js', 'rule': 'gone-rule', 'sha256': 'x', 'source_sha256': 'x', 'line': 1,
+                 'column': 1, 'expires': '2099-01-01', 'reason': 'probe', 'tracking': 'probe'}
+        return {'semgrep': [stale]}
+
+    def test_stale_semgrep_exception_warns_on_full_scan(self):
+        self.fake_semgrep({'results': [], 'errors': []}, 0)
+        text = self.semgrep_output(self.stale_semgrep_policy(), None)
+        self.assertIn('WARNING: stale semgrep exception', text)
+        self.assertIn('gone.js gone-rule', text)
+        self.assertIn('Semgrep gate PASS', text)
+
+    def test_stale_semgrep_exception_silent_on_staged_subset(self):
+        self.fake_semgrep({'results': [], 'errors': []}, 0)
+        text = self.semgrep_output(self.stale_semgrep_policy(), ['probe.js'])
+        self.assertNotIn('WARNING', text)
+        self.assertIn('Semgrep gate PASS', text)
+
+    def test_semgrep_parse_error_names_file_and_line_without_source(self):
+        error = {'type': 'PartialParsing', 'path': 'src/a.ts', 'message': 'secret-looking source text',
+                 'spans': [{'start': {'line': 7, 'col': 3}}]}
+        self.fake_semgrep({'results': [], 'errors': [error]}, 2)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(RuntimeError):
+            gate.semgrep(self.root, {'semgrep': []}, None)
+        self.assertIn('Semgrep error: PartialParsing src/a.ts:7', out.getvalue())
+        self.assertNotIn('secret-looking', out.getvalue())
+
+    def test_stale_audit_label_tells_two_pins_of_one_package_apart(self):
+        self.fake_npm({'vulnerabilities': {}}, 0)
+        pins = [{'package': 'twice-dep', 'sha256': digest * 64, 'expires': '2099-01-01', 'reason': 'probe', 'tracking': 'probe'}
+                for digest in ('a', 'b')]
+        text = self.audit_output({'audit': pins})
+        self.assertIn('twice-dep (pin aaaaaaaaaaaa)', text)
+        self.assertIn('twice-dep (pin bbbbbbbbbbbb)', text)
+
     def test_expired_policy_blocks(self):
         with self.assertRaises(RuntimeError):
             gate.exceptions({'audit':[{'expires':'2000-01-01','reason':'probe','tracking':'probe'}]}, 'audit')
