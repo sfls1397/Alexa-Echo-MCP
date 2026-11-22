@@ -5,7 +5,7 @@ import { AlexaService } from "./alexa/client.js";
 import { runLogin } from "./alexa/login.js";
 import { keychainSessionStore, SESSION_KEYCHAIN_ACCOUNT, SESSION_KEYCHAIN_SERVICE } from "./alexa/session.js";
 import { resolveConfig } from "./config.js";
-import { KEYCHAIN_ACCOUNT, KEYCHAIN_SERVICE, loadOrCreateHttpAuthToken, readKeychainSecret } from "./mcp/httpAuth.js";
+import { KEYCHAIN_ACCOUNT, KEYCHAIN_SERVICE, loadOrCreateHttpAuthToken, readKeychainSecret, takePreviousHttpAuthToken } from "./mcp/httpAuth.js";
 import { runHttpStdioProxy } from "./mcp/proxy.js";
 import { startHttpServer, startStdioServer } from "./mcp/server.js";
 import { echoNames } from "./mcp/tools.js";
@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     return;
   }
   const { token } = loadOrCreateHttpAuthToken({ log });
-  await startHttpServer({ ctx, host: config.serverHost, port: config.serverPort, token, log });
+  await startHttpServer({ ctx, host: config.serverHost, port: config.serverPort, token, previousToken: takePreviousHttpAuthToken(token), log });
 }
 
 main().catch((err) => {
